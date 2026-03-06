@@ -5,10 +5,11 @@ Analytics API — FastAPI router exposing analytics endpoints.
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.config import settings
 from app.services.productivity_service import ProductivityService
 from app.services.focus_service import FocusService
 from app.analytics.weekly_analysis import WeeklyAnalysis
@@ -22,7 +23,17 @@ from app.visualization.productivity_plot import (
     focus_score_gauge,
 )
 
-router = APIRouter(prefix="/analytics", tags=["Analytics"])
+
+def verify_api_key(x_api_key: str = Header(None)):
+    if not x_api_key or x_api_key != settings.API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+
+router = APIRouter(
+    prefix="/analytics",
+    tags=["Analytics"],
+    dependencies=[Depends(verify_api_key)]
+)
 
 
 # ------------------------------------------------------------------ #

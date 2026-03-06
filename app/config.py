@@ -36,12 +36,14 @@ class Settings:
     SERVICE_PORT: int = int(os.getenv("PORT", os.getenv("ANALYTICS_PORT", "8082")))
     SERVICE_HOST: str = os.getenv("HOST", os.getenv("ANALYTICS_HOST", "0.0.0.0"))
 
-    # CORS — allow the frontend (allow all in production for simplicity unless restricted)
     ALLOWED_ORIGINS: list = [
         "http://localhost:8081",
         "http://localhost:8080",
         "*",  # Production frontend domains or wildcard
     ]
+
+    # Security
+    API_KEY: str = os.getenv("ANALYTICS_API_KEY", "devet34tlt_)opment_inrtet43rnal_analytics_key_gwhuhg284yr44")
 
 
 settings = Settings()
