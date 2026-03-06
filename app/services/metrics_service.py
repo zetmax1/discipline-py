@@ -27,6 +27,7 @@ class MetricsService:
             return pd.DataFrame(columns=[
                 "id", "user_id", "name", "category", "start_time",
                 "end_time", "status", "distractions", "energy", "date",
+                "duration_hours",
             ])
 
         rows = []

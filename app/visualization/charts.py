@@ -56,7 +56,7 @@ def _save_fig(fig: plt.Figure, path: str):
 
 def completion_rate_trend(
     daily_metrics: list[dict],
-    title: str = "Completion Rate Trend",
+    title: str = "Completion rate trend",
     save_path: Optional[str] = None,
 ) -> str:
     """
@@ -74,7 +74,7 @@ def completion_rate_trend(
     ax.fill_between(dates, rates, alpha=0.1, color=COLORS["primary"])
 
     ax.set_title(title, fontsize=14, fontweight="bold", pad=12)
-    ax.set_ylabel("Completion Rate (%)")
+    ax.set_ylabel("Completion rate (%)")
     ax.set_ylim(0, 105)
     ax.tick_params(axis="x", rotation=45)
 
@@ -99,7 +99,7 @@ def completion_rate_trend(
 
 def weekly_productivity_bars(
     daily_metrics: list[dict],
-    title: str = "Weekly Productivity",
+    title: str = "Weekly productivity",
     save_path: Optional[str] = None,
 ) -> str:
     """
@@ -120,14 +120,14 @@ def weekly_productivity_bars(
 
     bars1 = ax1.bar(x - width / 2, comp_rates, width, color=COLORS["primary"],
                     label="Completion %", alpha=0.85)
-    ax1.set_ylabel("Completion Rate (%)", color=COLORS["primary"])
+    ax1.set_ylabel("Completion rate (%)", color=COLORS["primary"])
     ax1.set_ylim(0, 110)
     ax1.tick_params(axis="y", labelcolor=COLORS["primary"])
 
     ax2 = ax1.twinx()
     bars2 = ax2.bar(x + width / 2, dw_hours, width, color=COLORS["secondary"],
-                    label="Deep Work (h)", alpha=0.85)
-    ax2.set_ylabel("Deep Work Hours", color=COLORS["secondary"])
+                    label="Deep work (h)", alpha=0.85)
+    ax2.set_ylabel("Deep work (h)", color=COLORS["secondary"])
     ax2.tick_params(axis="y", labelcolor=COLORS["secondary"])
 
     ax1.set_xticks(x)
@@ -154,7 +154,7 @@ def weekly_productivity_bars(
 
 def category_distribution(
     cat_data: dict,
-    title: str = "Time Distribution by Category",
+    title: str = "Time distribution by category",
     save_path: Optional[str] = None,
 ) -> str:
     """

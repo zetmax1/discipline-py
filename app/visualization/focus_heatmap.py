@@ -17,11 +17,11 @@ import pandas as pd
 
 def focus_heatmap(
     heatmap_data: dict,
-    title: str = "Focus Heatmap — Deep Work by Hour & Day",
+    title: str = "Focus heatmap — deep work by hour & day",
     save_path: Optional[str] = None,
 ) -> str:
     """
-    Generate a seaborn heatmap from the FocusService heatmap_data.
+    Generate a seaborn heatmap from the focusservice heatmap_data.
     heatmap_data: {
         "weekdays": ["Mon", ..., "Sun"],
         "hours": [6, 7, ..., 23],
@@ -49,14 +49,14 @@ def focus_heatmap(
         cmap="YlOrRd",
         linewidths=0.5,
         linecolor="white",
-        cbar_kws={"label": "Deep Work Hours", "shrink": 0.8},
+        cbar_kws={"label": "Deep work hours", "shrink": 0.8},
         annot=True,
         fmt=".1f",
         annot_kws={"size": 8},
     )
 
     ax.set_title(title, fontsize=14, fontweight="bold", pad=14)
-    ax.set_xlabel("Hour of Day")
+    ax.set_xlabel("Hour of day")
     ax.set_ylabel("")
     ax.tick_params(axis="x", rotation=45)
 

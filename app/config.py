@@ -32,13 +32,15 @@ class Settings:
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         )
 
-    # Analytics service
-    SERVICE_PORT: int = int(os.getenv("ANALYTICS_PORT", "8082"))
-    SERVICE_HOST: str = os.getenv("ANALYTICS_HOST", "0.0.0.0")
+    # Analytics service (use Railway's dynamic PORT if available)
+    SERVICE_PORT: int = int(os.getenv("PORT", os.getenv("ANALYTICS_PORT", "8082")))
+    SERVICE_HOST: str = os.getenv("HOST", os.getenv("ANALYTICS_HOST", "0.0.0.0"))
 
-    # CORS — allow the frontend
+    # CORS — allow the frontend (allow all in production for simplicity unless restricted)
     ALLOWED_ORIGINS: list = [
         "http://localhost:8081",
+        "http://localhost:8080",
+        "*",  # Production frontend domains or wildcard
     ]
 
 
