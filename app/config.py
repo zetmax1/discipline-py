@@ -32,9 +32,9 @@ class Settings:
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         )
 
-    # Analytics service (use Railway's dynamic PORT if available)
-    SERVICE_PORT: int = int(os.getenv("PORT", os.getenv("ANALYTICS_PORT", "8082")))
-    SERVICE_HOST: str = os.getenv("HOST", os.getenv("ANALYTICS_HOST", "0.0.0.0"))
+    # Analytics service: Locally use ANALYTICS_PORT, in Railway fall back to dynamic PORT
+    SERVICE_PORT: int = int(os.getenv("ANALYTICS_PORT") or os.getenv("PORT", "8082"))
+    SERVICE_HOST: str = os.getenv("ANALYTICS_HOST", os.getenv("HOST", "0.0.0.0"))
 
     ALLOWED_ORIGINS: list = [
         "http://localhost:8081",
