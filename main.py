@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.api.analytics_api import router as analytics_router
+from app.smart_schedule.router import router as smart_schedule_router
 
 app = FastAPI(
     title="Discipline Analytics",
@@ -29,6 +30,9 @@ app.add_middleware(
 
 # Mount analytics router
 app.include_router(analytics_router)
+
+# Mount smart schedule router
+app.include_router(smart_schedule_router)
 
 
 @app.get("/", tags=["Health"])
