@@ -16,7 +16,8 @@ class Task(Base):
     user_id = Column(Integer, nullable=False, index=True)
     name = Column(String, nullable=False)
     category = Column(String, nullable=False)          # deep-work, study, admin, gym, rest
-    start_time = Column("start_time", String, nullable=False)  # "HH:MM"
+    # DB types are TIME / DATE; app.database returns them as "HH:MM" / "YYYY-MM-DD" text.
+    start_time = Column("start_time", String, nullable=False)  # "HH:MM" (end may be "24:00")
     end_time = Column("end_time", String, nullable=False)      # "HH:MM"
     status = Column(String, nullable=False, default="pending")  # pending, completed, skipped
     distractions = Column(Integer, nullable=False, default=0)
