@@ -16,6 +16,9 @@ if os.path.exists(_backend_env):
 load_dotenv()
 
 
+MIN_JWT_SECRET_LEN = 32
+
+
 class ConfigError(RuntimeError):
     """Raised when a required setting is missing or invalid."""
 
@@ -41,8 +44,10 @@ class Settings:
         self.DB_PASSWORD: str = _require("DB_PASSWORD", problems)
         self.DB_NAME: str = os.getenv("DB_NAME", "discipline")
 
-        # Security
-        self.API_KEY: str = _require("ANALYTICS_API_KEY", problems)
+        # Security: shared with the Go backend, which signs per-request tokens with it
+        self.INTERNAL_JWT_SECRET: str = _require("INTERNAL_JWT_SECRET", problems)
+        if self.INTERNAL_JWT_SECRET and len(self.INTERNAL_JWT_SECRET) < MIN_JWT_SECRET_LEN:
+            problems.append(f"INTERNAL_JWT_SECRET must be at least {MIN_JWT_SECRET_LEN} characters")
 
         if problems:
             raise ConfigError("Invalid configuration: " + "; ".join(problems))

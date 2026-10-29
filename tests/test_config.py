@@ -31,6 +31,13 @@ def test_startup_fails_when_secret_blank(env, name):
         load_settings()
 
 
+def test_startup_fails_when_internal_secret_too_short(env):
+    env.setenv("INTERNAL_JWT_SECRET", "y" * 31)
+    with pytest.raises(ConfigError) as exc:
+        load_settings()
+    assert "INTERNAL_JWT_SECRET" in str(exc.value)
+
+
 def test_no_hardcoded_db_password_fallback(env):
     env.delenv("DB_PASSWORD")
     with pytest.raises(ConfigError):

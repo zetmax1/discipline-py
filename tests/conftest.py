@@ -7,7 +7,7 @@ import os
 
 TEST_ENV = {
     "DB_PASSWORD": "db-password-for-tests",
-    "ANALYTICS_API_KEY": "analytics-key-for-tests",
+    "INTERNAL_JWT_SECRET": "internal-secret-for-tests-0123456789",
 }
 
 for key, value in TEST_ENV.items():

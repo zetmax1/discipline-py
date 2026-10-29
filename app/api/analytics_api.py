@@ -5,11 +5,11 @@ Analytics API — FastAPI router exposing analytics endpoints.
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Header, HTTPException
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user_id
 from app.database import get_db
-from app.config import settings
 from app.services.productivity_service import ProductivityService
 from app.services.focus_service import FocusService
 from app.analytics.weekly_analysis import WeeklyAnalysis
@@ -24,15 +24,10 @@ from app.visualization.productivity_plot import (
 )
 
 
-def verify_api_key(x_api_key: str = Header(None)):
-    if not x_api_key or x_api_key != settings.API_KEY:
-        raise HTTPException(status_code=403, detail="Invalid API Key")
-
-
 router = APIRouter(
     prefix="/analytics",
     tags=["Analytics"],
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[Depends(get_current_user_id)]
 )
 
 
@@ -42,7 +37,7 @@ router = APIRouter(
 
 @router.get("/weekly")
 def get_weekly_analytics(
-    user_id: int = Query(..., description="User ID"),
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -78,7 +73,7 @@ def get_weekly_analytics(
 
 @router.get("/monthly")
 def get_monthly_analytics(
-    user_id: int = Query(..., description="User ID"),
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -134,7 +129,7 @@ def get_monthly_analytics(
 
 @router.get("/productivity-trend")
 def get_productivity_trend(
-    user_id: int = Query(..., description="User ID"),
+    user_id: int = Depends(get_current_user_id),
     days: int = Query(30, ge=7, le=365, description="Number of days"),
     db: Session = Depends(get_db),
 ):
@@ -170,7 +165,7 @@ def get_productivity_trend(
 
 @router.get("/focus-patterns")
 def get_focus_patterns(
-    user_id: int = Query(..., description="User ID"),
+    user_id: int = Depends(get_current_user_id),
     days: int = Query(30, ge=7, le=365, description="Number of days"),
     db: Session = Depends(get_db),
 ):
