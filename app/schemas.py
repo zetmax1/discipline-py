@@ -67,7 +67,7 @@ class GaugeData(BaseModel):
 
 
 class GaugeChart(BaseModel):
-    image: str  # base64 PNG ("" when there is nothing to draw)
+    image: str  # base64 PNG (a "No data yet" placeholder when there is nothing to draw)
     data: GaugeData
 
 

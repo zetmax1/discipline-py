@@ -7,6 +7,8 @@ Server-side charts, rendered with matplotlib's object-oriented API only.
 - Rendered images are cached for CACHE_TTL_SECONDS per
   (user, endpoint, range, chart, data hash); changed data is a new key.
 - Every chart is returned as {"image": base64 PNG, "data": <what was plotted>}.
+- A chart with nothing to draw (zero total, no points, no score) gets the
+  placeholder image instead of raising.
 """
 
 import base64
@@ -16,6 +18,7 @@ import json
 import threading
 import time
 from collections import OrderedDict
+from functools import lru_cache
 from typing import Callable
 
 import numpy as np
@@ -58,6 +61,16 @@ def render(draw: Callable[[Figure], None], size: tuple[float, float]) -> str:
             return base64.b64encode(buf.getvalue()).decode("ascii")
         finally:
             fig.clear()
+
+
+@lru_cache(maxsize=1)
+def placeholder_image() -> str:
+    """The "No data yet" image used for charts with nothing to draw."""
+    def draw(fig: Figure):
+        ax = fig.add_subplot()
+        ax.text(0.5, 0.5, "No data yet", ha="center", va="center", fontsize=14, color=COLORS["muted"])
+        ax.set_axis_off()
+    return render(draw, (4, 2))
 
 
 class ChartCache:
@@ -128,7 +141,7 @@ def _draw_gauge(score: float, title: str):
 def gauge_chart(user_id, endpoint, range_key, score: float | None, title: str = "Focus Score") -> dict:
     data = {"score": score}
     if score is None:
-        return {"image": "", "data": data}
+        return {"image": placeholder_image(), "data": data}
     return _cached_chart(user_id, endpoint, range_key, "focus_gauge", data,
                          lambda: render(_draw_gauge(score, title), (5, 3.5)))
 
@@ -158,8 +171,8 @@ def _draw_category(points: list[dict], title: str):
 def category_chart(user_id, endpoint, range_key, points: list[dict],
                    title: str = "Time distribution by category") -> dict:
     """points: [{"label": category, "value": hours}]"""
-    if not points:
-        return {"image": "", "data": points}
+    if sum(p["value"] or 0 for p in points) <= 0:   # an all-zero pie cannot be drawn
+        return {"image": placeholder_image(), "data": points}
     return _cached_chart(user_id, endpoint, range_key, "category_distribution", points,
                          lambda: render(_draw_category(points, title), (6, 6)))
 
@@ -192,7 +205,7 @@ def trend_chart(user_id, endpoint, range_key, points: list[dict], title: str = "
                 ylabel: str = "Distractions per deep-work hour") -> dict:
     """points: [{"label": date, "value": number | None}]"""
     if not any(p["value"] is not None for p in points):
-        return {"image": "", "data": points}
+        return {"image": placeholder_image(), "data": points}
     return _cached_chart(user_id, endpoint, range_key, "distraction_trend", points,
                          lambda: render(_draw_trend(points, title, ylabel), (10, 4)))
 
