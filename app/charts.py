@@ -22,6 +22,7 @@ from functools import lru_cache
 from typing import Callable
 
 import numpy as np
+from matplotlib.colors import Normalize
 from matplotlib.figure import Figure
 
 RENDER_CONCURRENCY = 2
@@ -218,7 +219,9 @@ def _draw_heatmap(heatmap: dict, title: str):
     def draw(fig: Figure):
         ax = fig.add_subplot()
         matrix = np.array(heatmap["values"], dtype=float)
-        mesh = ax.pcolormesh(matrix, cmap="YlOrRd", edgecolors="white", linewidth=0.5)
+        # Fixed scale from 0, so "no deep work" is always the lowest color.
+        norm = Normalize(vmin=0, vmax=max(1.0, float(matrix.max(initial=0))))
+        mesh = ax.pcolormesh(matrix, cmap="YlOrRd", norm=norm, edgecolors="white", linewidth=0.5)
         fig.colorbar(mesh, ax=ax, label="Deep work hours", shrink=0.8)
         for (r, c), v in np.ndenumerate(matrix):
             ax.text(c + 0.5, r + 0.5, f"{v:.1f}", ha="center", va="center", fontsize=8)

@@ -208,18 +208,12 @@ def patterns(db: Session, user_id: int, now) -> dict:
 # ------------------------------------------------------------------ #
 
 def heatmap_matrix(blocks: list[Block]) -> dict:
-    """Completed deep-work hours by weekday x hour (06–23)."""
-    hours = list(range(6, 24))
-    values = {day: [0.0] * len(hours) for day in WEEKDAYS}
+    """Completed deep-work hours by weekday x hour (00–23), bucketed by minute overlap with [h, h+1)."""
+    by_weekday = defaultdict(list)
     for blk in blocks:
-        if not (blk.completed and blk.category == DEEP_WORK) or blk.minutes == 0:
-            continue
-        sh, eh = blk.start_min // 60, blk.end_min // 60
-        wd = WEEKDAYS[blk.day.weekday()]
-        for h in range(max(sh, 6), min(eh + 1, 24)):
-            values[wd][h - 6] += (blk.minutes / 60) / max(eh - sh + 1, 1)
-    return {"weekdays": WEEKDAYS, "hours": hours,
-            "values": [[round(v, 2) for v in values[d]] for d in WEEKDAYS]}
+        by_weekday[blk.day.weekday()].append(blk)
+    values = [[round(m / 60, 2) for m in deep_minutes_by_hour(by_weekday[wd])] for wd in range(7)]
+    return {"weekdays": WEEKDAYS, "hours": list(range(24)), "values": values}
 
 
 def focus_patterns(db: Session, user_id: int, tz: str, days: int) -> dict:
