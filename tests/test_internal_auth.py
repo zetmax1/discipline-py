@@ -57,24 +57,12 @@ def client(monkeypatch, seen):
         def generate(self, request):
             return SmartScheduleResponse(blocks=[], reasoning=[])
 
-    class FakeFocusService:
-        def __init__(self, db):
-            pass
-
-        def focus_patterns(self, user_id, days=30, tz="UTC"):
-            seen.append(user_id)
-            return {
-                "heatmap_data": {},
-                "productivity_by_weekday": [],
-                "deep_work_distribution": [],
-                "distraction_trend": [],
-            }
+    def fake_load(db, user_id, start, end):
+        seen.append(user_id)
+        return []
 
     monkeypatch.setattr(schedule_router, "ScheduleGenerator", FakeGenerator)
-    monkeypatch.setattr(analytics_api, "FocusService", FakeFocusService)
-    for chart in ("focus_heatmap", "deep_work_distribution", "distraction_trend"):
-        monkeypatch.setattr(analytics_api, chart, lambda *a, **k: "")
-    monkeypatch.setattr(analytics_api.charts, "productivity_by_weekday", lambda *a, **k: "")
+    monkeypatch.setattr(analytics_api.reports, "load_blocks", fake_load)
 
     main.app.dependency_overrides[get_db] = lambda: None
     yield TestClient(main.app)
@@ -84,7 +72,7 @@ def client(monkeypatch, seen):
 PROTECTED = [
     ("get", "/analytics/weekly", None),
     ("get", "/analytics/monthly", None),
-    ("get", "/analytics/productivity-trend", None),
+    ("get", "/analytics/today", None),
     ("get", "/analytics/focus-patterns", None),
     ("post", "/analytics/smart-schedule", SCHEDULE_BODY),
 ]
@@ -151,7 +139,7 @@ def test_focus_patterns_uses_token_user_and_ignores_query(client, seen):
         headers=bearer(make_token(sub="7")), params={"user_id": 999, "days": 14},
     )
     assert r.status_code == 200, r.text
-    assert seen == [7]
+    assert seen and set(seen) == {7}
 
 
 def test_user_id_query_param_not_in_openapi_contract():

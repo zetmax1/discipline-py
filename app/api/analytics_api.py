@@ -1,27 +1,17 @@
 """
 Analytics API — FastAPI router exposing analytics endpoints.
+Every number comes from app.metrics via app.reports.
 """
-
-from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app import reports
 from app.auth import get_current_tz, get_current_user, get_current_user_id
 from app.database import get_db
-from app.services.productivity_service import ProductivityService
-from app.services.focus_service import FocusService
-from app.analytics.weekly_analysis import WeeklyAnalysis
-from app.analytics.monthly_analysis import MonthlyAnalysis
-from app.analytics.pattern_detection import PatternDetection
 from app.visualization import charts
 from app.visualization.focus_heatmap import focus_heatmap
-from app.visualization.productivity_plot import (
-    deep_work_distribution,
-    distraction_trend,
-    focus_score_gauge,
-)
+from app.visualization.productivity_plot import distraction_trend, focus_score_gauge
 
 
 router = APIRouter(
@@ -31,8 +21,32 @@ router = APIRouter(
 )
 
 
+def _period_charts(report: dict) -> dict:
+    score = report["focus_score"]
+    return {
+        "focus_gauge": focus_score_gauge(round(score)) if score is not None else "",
+        "category_distribution": charts.category_distribution(
+            {c["category"]: c["minutes"] / 60 for c in report["category_minutes"]}
+        ),
+    }
+
+
 # ------------------------------------------------------------------ #
-#  GET /analytics/weekly
+#  GET /analytics/today
+# ------------------------------------------------------------------ #
+
+@router.get("/today")
+def get_today(
+    user_id: int = Depends(get_current_user_id),
+    tz: str = Depends(get_current_tz),
+    db: Session = Depends(get_db),
+):
+    """Today's metrics in the user's zone (dashboard)."""
+    return reports.today_report(db, user_id, tz)
+
+
+# ------------------------------------------------------------------ #
+#  GET /analytics/weekly, /analytics/monthly
 # ------------------------------------------------------------------ #
 
 @router.get("/weekly")
@@ -41,36 +55,11 @@ def get_weekly_analytics(
     tz: str = Depends(get_current_tz),
     db: Session = Depends(get_db),
 ):
-    """
-    Full weekly analytics report with metrics, daily breakdown,
-    category distribution, charts, and week-over-week comparison.
-    """
-    svc = ProductivityService(db)
-    analysis = WeeklyAnalysis(db)
+    """This week's daily metrics, mean focus score, categories and comparison with last week."""
+    report = reports.period_report(db, user_id, tz, "week")
+    report["charts"] = _period_charts(report)
+    return report
 
-    report = svc.weekly_report(user_id, tz=tz)
-    detailed = analysis.analyse(user_id, tz=tz)
-
-    # Generate charts
-    daily = report["daily_breakdown"]
-    chart_completion = charts.completion_rate_trend(daily, title="Weekly Completion Rate")
-    chart_weekly = charts.weekly_productivity_bars(daily, title="This Week's Productivity")
-    chart_category = charts.category_distribution(report["category_distribution"])
-
-    return {
-        "report": report,
-        "analysis": detailed,
-        "charts": {
-            "completion_trend": chart_completion,
-            "weekly_bars": chart_weekly,
-            "category_distribution": chart_category,
-        },
-    }
-
-
-# ------------------------------------------------------------------ #
-#  GET /analytics/monthly
-# ------------------------------------------------------------------ #
 
 @router.get("/monthly")
 def get_monthly_analytics(
@@ -78,88 +67,10 @@ def get_monthly_analytics(
     tz: str = Depends(get_current_tz),
     db: Session = Depends(get_db),
 ):
-    """
-    Monthly analytics: overall metrics, weekly sub-breakdowns,
-    discipline index trend, category distribution, and charts.
-    """
-    svc = ProductivityService(db)
-    analysis = MonthlyAnalysis(db)
-
-    report = svc.monthly_report(user_id, tz=tz)
-    detailed = analysis.analyse(user_id, tz=tz)
-
-    # Charts
-    weekly_metrics = [
-        {
-            "date": w.get("start_date", f"Week {w['week']}"),
-            "completion_rate": w["completion_rate"],
-            "deep_work_hours": w["deep_work_hours"],
-            "focus_score": w["focus_score"],
-        }
-        for w in detailed.get("weekly_breakdown", [])
-    ]
-    chart_trend = charts.completion_rate_trend(weekly_metrics, title="Monthly Completion Trend")
-    monthly_cat_data = detailed.get("category_distribution", {})
-    chart_cat_data = {
-        cat: data.get("hours", 0) 
-        for cat, data in monthly_cat_data.items()
-    }
-
-    chart_category = charts.category_distribution(
-        chart_cat_data,
-        title="Monthly Time Distribution",
-    )
-    chart_gauge = focus_score_gauge(
-        detailed.get("metrics", {}).get("focus_score", 0),
-        title="Monthly Focus Score",
-    )
-
-    return {
-        "report": report,
-        "analysis": detailed,
-        "charts": {
-            "completion_trend": chart_trend,
-            "category_distribution": chart_category,
-            "focus_gauge": chart_gauge,
-        },
-    }
-
-
-# ------------------------------------------------------------------ #
-#  GET /analytics/productivity-trend
-# ------------------------------------------------------------------ #
-
-@router.get("/productivity-trend")
-def get_productivity_trend(
-    user_id: int = Depends(get_current_user_id),
-    tz: str = Depends(get_current_tz),
-    days: int = Query(30, ge=7, le=365, description="Number of days"),
-    db: Session = Depends(get_db),
-):
-    """
-    Productivity trend over the last N days.
-    Returns daily metrics and trend line chart.
-    """
-    svc = ProductivityService(db)
-    trend_data = svc.productivity_trend(user_id, days=days, tz=tz)
-
-    # Pattern detection
-    patterns = PatternDetection(db)
-    detected = patterns.detect(user_id, days=days, tz=tz)
-
-    # Chart
-    chart = charts.completion_rate_trend(
-        trend_data["trend"],
-        title=f"Productivity Trend ({days} days)",
-    )
-
-    return {
-        "trend": trend_data,
-        "patterns": detected,
-        "charts": {
-            "trend_line": chart,
-        },
-    }
+    """This month's daily metrics, mean focus score, categories and comparison with last month."""
+    report = reports.period_report(db, user_id, tz, "month")
+    report["charts"] = _period_charts(report)
+    return report
 
 
 # ------------------------------------------------------------------ #
@@ -173,25 +84,14 @@ def get_focus_patterns(
     days: int = Query(30, ge=7, le=365, description="Number of days"),
     db: Session = Depends(get_db),
 ):
-    """
-    Focus pattern analysis: heatmap, peak hours, productivity by weekday,
-    distraction trends, and deep work distribution.
-    """
-    svc = FocusService(db)
-    data = svc.focus_patterns(user_id, days=days, tz=tz)
-
-    # Charts
-    chart_heatmap = focus_heatmap(data["heatmap_data"])
-    chart_weekday = charts.productivity_by_weekday(data["productivity_by_weekday"])
-    chart_dw_dist = deep_work_distribution(data["deep_work_distribution"])
-    chart_distr = distraction_trend(data["distraction_trend"])
-
-    return {
-        "data": data,
-        "charts": {
-            "focus_heatmap": chart_heatmap,
-            "productivity_by_weekday": chart_weekday,
-            "deep_work_distribution": chart_dw_dist,
-            "distraction_trend": chart_distr,
-        },
+    """Heatmap, weekday scores, deep-work slots and distraction trend over the last N days."""
+    data = reports.focus_patterns(db, user_id, tz, days)
+    heat = data["heatmap"]
+    data["charts"] = {
+        "focus_heatmap": focus_heatmap({**heat, "values": dict(zip(heat["weekdays"], heat["values"]))}),
+        "distraction_trend": distraction_trend([
+            {"date": p["date"], "avg_distractions": p["distractions_per_hour"]}
+            for p in data["distraction_trend"] if p["distractions_per_hour"] is not None
+        ]),
     }
+    return data
