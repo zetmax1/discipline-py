@@ -26,6 +26,16 @@ python main.py
 # http://localhost:8082/docs
 ```
 
+## Dependencies
+
+`requirements.in` lists the direct dependencies; `requirements.txt` is the full lock (every
+transitive package pinned) that Railway installs. After changing `requirements.in`:
+
+```bash
+python3.12 -m venv /tmp/lock && /tmp/lock/bin/pip install -r requirements.in
+/tmp/lock/bin/pip freeze | grep -v '^pip==\|^setuptools==' >> requirements.txt   # replace the old pins
+```
+
 ## API Endpoints
 
 Every endpoint requires `Authorization: Bearer <internal JWT>` signed by the Go backend
