@@ -69,10 +69,23 @@ def client_for(monkeypatch):
 
     def make(blocks):
         monkeypatch.setattr(reports, "load_blocks", lambda db, u, s, e: [b for b in blocks if s <= b.day <= e])
+        main.app.dependency_overrides[get_db] = lambda: _NoHistoryDB()
         return TestClient(main.app)
 
     yield make
     main.app.dependency_overrides.clear()
+
+
+class _NoHistoryDB:
+    """Stands in for the session the schedule generator queries for history."""
+
+    def query(self, *a, **k):
+        return self
+
+    filter = order_by = query
+
+    def all(self):
+        return []
 
 
 def errors(schema: dict, payload) -> list[str]:
@@ -89,6 +102,20 @@ def test_responses_match_frontend_contract(client_for, dataset, key, path):
     assert r.status_code == 200, r.text
     problems = errors(contract[key], r.json())
     assert not problems, f"{path} ({dataset}) breaks the frontend contract:\n" + "\n".join(problems)
+
+
+@pytest.mark.parametrize("goals", [
+    {"deepWorkHours": 15, "studyHours": 10, "restHours": 7},
+    {"deepWorkHours": 80, "studyHours": 80, "restHours": 80},   # forces shortfall
+])
+def test_smart_schedule_matches_frontend_contract(client_for, goals):
+    contract = load_contract()
+    body = {"commitments": [{"id": "s", "name": "Sleep", "startTime": "23:00", "endTime": "07:00",
+                             "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]}], "goals": goals}
+    r = client_for(RICH).post("/analytics/smart-schedule", json=body, headers=bearer(make_token()))
+    assert r.status_code == 200, r.text
+    problems = errors(contract["smart_schedule"], r.json())
+    assert not problems, "smart-schedule breaks the frontend contract:\n" + "\n".join(problems)
 
 
 def test_contract_covers_patterns_both_ways(client_for):
