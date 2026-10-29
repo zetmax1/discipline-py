@@ -1,6 +1,7 @@
 """
 Configuration for the analytics microservice.
-Reads database credentials from the Go backend's .env or uses defaults.
+Reads database credentials from the Go backend's .env or the environment.
+Required secrets have no defaults: the service refuses to start without them.
 """
 
 import os
@@ -15,15 +16,36 @@ if os.path.exists(_backend_env):
 load_dotenv()
 
 
+class ConfigError(RuntimeError):
+    """Raised when a required setting is missing or invalid."""
+
+
+def _require(name: str, problems: list[str]) -> str:
+    """Return a required variable, recording a problem if it is unset or blank."""
+    value = os.getenv(name, "").strip()
+    if not value:
+        problems.append(f"{name} is required")
+    return value
+
+
 class Settings:
     """Application settings."""
 
-    # Database (same PostgreSQL as the Go backend)
-    DB_HOST: str = os.getenv("DB_HOST", "localhost")
-    DB_PORT: int = int(os.getenv("DB_PORT", "5432"))
-    DB_USER: str = os.getenv("DB_USER", "postgres")
-    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "zetmax111")
-    DB_NAME: str = os.getenv("DB_NAME", "discipline")
+    def __init__(self) -> None:
+        problems: list[str] = []
+
+        # Database (same PostgreSQL as the Go backend)
+        self.DB_HOST: str = os.getenv("DB_HOST", "localhost")
+        self.DB_PORT: int = int(os.getenv("DB_PORT", "5432"))
+        self.DB_USER: str = os.getenv("DB_USER", "postgres")
+        self.DB_PASSWORD: str = _require("DB_PASSWORD", problems)
+        self.DB_NAME: str = os.getenv("DB_NAME", "discipline")
+
+        # Security
+        self.API_KEY: str = _require("ANALYTICS_API_KEY", problems)
+
+        if problems:
+            raise ConfigError("Invalid configuration: " + "; ".join(problems))
 
     @property
     def DATABASE_URL(self) -> str:
@@ -42,8 +64,11 @@ class Settings:
         "*",  # Production frontend domains or wildcard
     ]
 
-    # Security
-    API_KEY: str = os.getenv("ANALYTICS_API_KEY", "devet34tlt_)opment_inrtet43rnal_analytics_key_gwhuhg284yr44")
 
 
-settings = Settings()
+def load_settings() -> Settings:
+    """Build settings from the environment; raises ConfigError if a secret is missing."""
+    return Settings()
+
+
+settings = load_settings()
