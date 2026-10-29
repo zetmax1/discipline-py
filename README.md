@@ -22,20 +22,29 @@ pip install -r requirements.txt
 # 2. Run the service
 python main.py
 
-# 3. Open API docs
+# 3. Open API docs (only served when ENABLE_DOCS=true)
 # http://localhost:8082/docs
 ```
 
 ## API Endpoints
 
+Every endpoint requires `Authorization: Bearer <internal JWT>` signed by the Go backend
+(HS256, `INTERNAL_JWT_SECRET`, `aud=discipline-py`, `exp` ≤ 60s). The user is taken only from
+the token's `sub` claim; there is no `user_id` parameter. The service is meant to be reached
+only over Railway private networking, not from browsers.
+
 | Endpoint | Description |
 |---|---|
-| `GET /analytics/weekly?user_id=1` | Weekly report — metrics, daily breakdown, charts |
-| `GET /analytics/monthly?user_id=1` | Monthly report — weekly trends, category distribution |
-| `GET /analytics/productivity-trend?user_id=1&days=30` | Productivity trend line over N days |
-| `GET /analytics/focus-patterns?user_id=1&days=30` | Focus heatmap, peak hours, distraction trends |
+| `GET /analytics/weekly` | Weekly report — metrics, daily breakdown, charts |
+| `GET /analytics/monthly` | Monthly report — weekly trends, category distribution |
+| `GET /analytics/productivity-trend?days=30` | Productivity trend line over N days |
+| `GET /analytics/focus-patterns?days=30` | Focus heatmap, peak hours, distraction trends |
+| `POST /analytics/smart-schedule` | Weekly schedule from commitments and goals |
 
 All responses return **structured JSON** with metrics + **base64-encoded chart images**.
+
+Configuration: see `.env.example` (names only). `DB_PASSWORD` and `INTERNAL_JWT_SECRET`
+are required; the service refuses to start without them.
 
 ## CLI Report Generator
 
