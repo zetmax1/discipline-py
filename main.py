@@ -7,6 +7,7 @@ Docs: http://localhost:8082/docs (only when ENABLE_DOCS=true)
 import uvicorn
 from fastapi import FastAPI
 
+from app import schemas
 from app.config import settings
 from app.api.analytics_api import router as analytics_router
 from app.smart_schedule.router import router as smart_schedule_router
@@ -31,11 +32,11 @@ def create_app(enable_docs: bool = settings.ENABLE_DOCS) -> FastAPI:
     # Mount smart schedule router
     app.include_router(smart_schedule_router)
 
-    @app.get("/", tags=["Health"])
+    @app.get("/", tags=["Health"], response_model=schemas.ServiceInfo)
     def root():
         return {"service": "discipline-analytics", "status": "running", "version": "1.0.0"}
 
-    @app.get("/health", tags=["Health"])
+    @app.get("/health", tags=["Health"], response_model=schemas.Health)
     def health():
         return {"status": "ok"}
 

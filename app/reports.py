@@ -3,10 +3,12 @@ Analytics payloads for every endpoint, built only from app.metrics.day_metrics.
 All "today" / week / month boundaries use the user's IANA zone.
 """
 
+import statistics
 from collections import defaultdict
 from dataclasses import asdict
 from datetime import date, timedelta
 
+import numpy as np
 from sqlalchemy.orm import Session
 
 from app.metrics import (
@@ -22,6 +24,9 @@ from app.models.task import Task
 from app.timeutil import local_now
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+PATTERN_WINDOW_DAYS = 30
+PATTERN_MIN_DAYS = 7
 STREAK_LOOKBACK_DAYS = 365
 DEEP_WORK_SLOTS = [("Morning (6–12)", 6, 12), ("Afternoon (12–17)", 12, 17), ("Evening (17–22)", 17, 22)]
 
@@ -121,6 +126,7 @@ def period_report(db: Session, user_id: int, tz: str, kind: str) -> dict:
         "days": [asdict(d) for d in days],
         "category_minutes": [{"category": c, "minutes": m} for c, m in sorted(category_minutes.items())],
         "streak": current_streak(db, user_id, now),
+        "patterns": patterns(db, user_id, now),
         "comparison": {
             "previous_focus_score": prev_focus,
             "change": _rounded(focus - prev_focus) if focus is not None and prev_focus is not None else None,
@@ -134,6 +140,67 @@ def current_streak(db: Session, user_id: int, now) -> int:
     start = yesterday - timedelta(days=STREAK_LOOKBACK_DAYS - 1)
     days = days_metrics(load_blocks(db, user_id, start, yesterday), start, yesterday, now)
     return streak_length(list(reversed(days)))
+
+
+def deep_minutes_by_hour(blocks: list[Block]) -> list[int]:
+    """Completed deep-work minutes overlapping each hour [h, h+1), h = 0..23."""
+    minutes = [0] * 24
+    for blk in blocks:
+        if not (blk.completed and blk.category == DEEP_WORK) or blk.minutes == 0:
+            continue
+        for h in range(24):
+            overlap = min(blk.end_min, (h + 1) * 60) - max(blk.start_min, h * 60)
+            if overlap > 0:
+                minutes[h] += overlap
+    return minutes
+
+
+def patterns(db: Session, user_id: int, now) -> dict:
+    """Patterns over the trailing 30 days (up to today); needs 7 days with due blocks."""
+    end = now.date()
+    start = end - timedelta(days=PATTERN_WINDOW_DAYS - 1)
+    blocks = load_blocks(db, user_id, start, end)
+    daily = [d for d in days_metrics(blocks, start, end, now) if d.completion is not None]
+
+    if len(daily) < PATTERN_MIN_DAYS:
+        return {"insufficient_data": True, "days_needed": PATTERN_MIN_DAYS - len(daily),
+                "days_with_data": len(daily), "window_days": PATTERN_WINDOW_DAYS}
+
+    by_weekday = defaultdict(list)
+    for d in daily:
+        by_weekday[date.fromisoformat(d.date).weekday()].append(d.focus_score)
+    best = max(by_weekday, key=lambda wd: (statistics.mean(by_weekday[wd]), -wd))
+    best_score = round(statistics.mean(by_weekday[best]), 1)
+
+    hour_minutes = deep_minutes_by_hour(blocks)
+    peak_hour = hour_minutes.index(max(hour_minutes)) if max(hour_minutes) > 0 else None
+
+    scores = np.array([d.focus_score for d in daily], dtype=float)
+    slope = float(np.polyfit(np.arange(len(scores), dtype=float), scores, 1)[0])
+    trend = "improving" if slope > 0.5 else "declining" if slope < -0.5 else "stable"
+
+    consistency = max(0, min(100, round(100 - statistics.pstdev(d.completion * 100 for d in daily))))
+
+    insights = [f"Your best day is {WEEKDAY_NAMES[best]}, with an average focus score of {best_score}."]
+    if peak_hour is not None:
+        insights.append(f"Most of your deep work happens around {peak_hour:02d}:00.")
+    insights.append({
+        "improving": "Your daily focus score is trending up.",
+        "stable": "Your daily focus score is steady.",
+        "declining": "Your daily focus score is trending down.",
+    }[trend])
+    insights.append(f"Consistency of completion: {consistency}/100.")
+
+    return {
+        "insufficient_data": False,
+        "days_with_data": len(daily),
+        "window_days": PATTERN_WINDOW_DAYS,
+        "best_weekday": WEEKDAY_NAMES[best],
+        "peak_hour": peak_hour,
+        "trend": trend,
+        "consistency_score": consistency,
+        "insights": insights,
+    }
 
 
 # ------------------------------------------------------------------ #

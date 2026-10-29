@@ -6,7 +6,7 @@ Every number comes from app.metrics via app.reports.
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app import reports
+from app import reports, schemas
 from app.auth import get_current_tz, get_current_user, get_current_user_id
 from app.database import get_db
 from app.visualization import charts
@@ -35,7 +35,7 @@ def _period_charts(report: dict) -> dict:
 #  GET /analytics/today
 # ------------------------------------------------------------------ #
 
-@router.get("/today")
+@router.get("/today", response_model=schemas.TodayResponse)
 def get_today(
     user_id: int = Depends(get_current_user_id),
     tz: str = Depends(get_current_tz),
@@ -49,7 +49,7 @@ def get_today(
 #  GET /analytics/weekly, /analytics/monthly
 # ------------------------------------------------------------------ #
 
-@router.get("/weekly")
+@router.get("/weekly", response_model=schemas.PeriodReport)
 def get_weekly_analytics(
     user_id: int = Depends(get_current_user_id),
     tz: str = Depends(get_current_tz),
@@ -61,7 +61,7 @@ def get_weekly_analytics(
     return report
 
 
-@router.get("/monthly")
+@router.get("/monthly", response_model=schemas.PeriodReport)
 def get_monthly_analytics(
     user_id: int = Depends(get_current_user_id),
     tz: str = Depends(get_current_tz),
@@ -77,7 +77,7 @@ def get_monthly_analytics(
 #  GET /analytics/focus-patterns
 # ------------------------------------------------------------------ #
 
-@router.get("/focus-patterns")
+@router.get("/focus-patterns", response_model=schemas.FocusPatternsResponse)
 def get_focus_patterns(
     user_id: int = Depends(get_current_user_id),
     tz: str = Depends(get_current_tz),
