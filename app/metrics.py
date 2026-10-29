@@ -9,6 +9,9 @@ For day D in the user's zone, a block is "due" once its end time has passed.
                  0 when no deep work was completed
   focus_score  = round half up of 100 * (0.5*completion + 0.3*deep + 0.2*distraction); None if nothing due
 A week or month score is the mean of the daily scores that exist.
+Streak: counting back from the most recent finished day, days with nothing due are
+skipped, days with completion >= STREAK_COMPLETION_THRESHOLD count, the first day
+below it ends the streak.
 """
 
 import math
@@ -17,6 +20,8 @@ from datetime import date, datetime
 
 DAILY_DEEP_WORK_TARGET_MIN = 180
 DISTRACTIONS_PER_HOUR_LIMIT = 4
+
+STREAK_COMPLETION_THRESHOLD = 0.7
 
 WEIGHT_COMPLETION = 0.5
 WEIGHT_DEEP = 0.3
@@ -148,3 +153,15 @@ def mean_score(scores: list[int | None]) -> float | None:
     if not present:
         return None
     return round(sum(present) / len(present), 1)
+
+
+def streak_length(finished_days_newest_first: list[DayMetrics]) -> int:
+    """Consecutive finished days at or above the completion threshold (empty days skipped)."""
+    streak = 0
+    for d in finished_days_newest_first:
+        if d.completion is None:
+            continue
+        if d.completion < STREAK_COMPLETION_THRESHOLD:
+            break
+        streak += 1
+    return streak

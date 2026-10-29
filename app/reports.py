@@ -9,11 +9,20 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.metrics import DAILY_DEEP_WORK_TARGET_MIN, DEEP_WORK, Block, DayMetrics, day_metrics, mean_score
+from app.metrics import (
+    DAILY_DEEP_WORK_TARGET_MIN,
+    DEEP_WORK,
+    Block,
+    DayMetrics,
+    day_metrics,
+    mean_score,
+    streak_length,
+)
 from app.models.task import Task
 from app.timeutil import local_now
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+STREAK_LOOKBACK_DAYS = 365
 DEEP_WORK_SLOTS = [("Morning (6–12)", 6, 12), ("Afternoon (12–17)", 12, 17), ("Evening (17–22)", 17, 22)]
 
 
@@ -84,7 +93,7 @@ def period_report(db: Session, user_id: int, tz: str, kind: str) -> dict:
     today = now.date()
     bounds = week_bounds if kind == "week" else month_bounds
     start, period_end = bounds(today)
-    end = period_end
+    end = min(period_end, today)   # never report future days
 
     blocks = load_blocks(db, user_id, start, end)
     days = days_metrics(blocks, start, end, now)
@@ -111,11 +120,20 @@ def period_report(db: Session, user_id: int, tz: str, kind: str) -> dict:
         "deep_work_minutes": sum(d.deep_work_minutes for d in days),
         "days": [asdict(d) for d in days],
         "category_minutes": [{"category": c, "minutes": m} for c, m in sorted(category_minutes.items())],
+        "streak": current_streak(db, user_id, now),
         "comparison": {
             "previous_focus_score": prev_focus,
             "change": _rounded(focus - prev_focus) if focus is not None and prev_focus is not None else None,
         },
     }
+
+
+def current_streak(db: Session, user_id: int, now) -> int:
+    """Streak counted back from yesterday, the most recent finished day."""
+    yesterday = now.date() - timedelta(days=1)
+    start = yesterday - timedelta(days=STREAK_LOOKBACK_DAYS - 1)
+    days = days_metrics(load_blocks(db, user_id, start, yesterday), start, yesterday, now)
+    return streak_length(list(reversed(days)))
 
 
 # ------------------------------------------------------------------ #
