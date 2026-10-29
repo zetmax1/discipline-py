@@ -33,3 +33,21 @@ def test_module_app_hides_docs_without_env():
     client = TestClient(main.app)
     for path in DOC_PATHS:
         assert client.get(path).status_code == 404
+
+
+@pytest.mark.parametrize("origin", ["https://evil.example", "http://localhost:8081"])
+def test_no_cors_headers_for_any_origin(origin):
+    client = TestClient(main.app)
+    r = client.get("/health", headers={"Origin": origin})
+    assert "access-control-allow-origin" not in r.headers
+    assert "access-control-allow-credentials" not in r.headers
+
+
+def test_cors_preflight_not_answered():
+    client = TestClient(main.app)
+    r = client.options(
+        "/analytics/weekly",
+        headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"},
+    )
+    assert "access-control-allow-origin" not in r.headers
+    assert r.status_code != 200

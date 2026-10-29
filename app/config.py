@@ -66,12 +66,6 @@ class Settings:
     SERVICE_PORT: int = int(os.getenv("ANALYTICS_PORT") or os.getenv("PORT", "8082"))
     SERVICE_HOST: str = os.getenv("ANALYTICS_HOST", os.getenv("HOST", "0.0.0.0"))
 
-    ALLOWED_ORIGINS: list = [
-        "http://localhost:8081",
-        "http://localhost:8080",
-        "*",  # Production frontend domains or wildcard
-    ]
-
 
 
 def load_settings() -> Settings:

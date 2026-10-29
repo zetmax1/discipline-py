@@ -6,7 +6,6 @@ Docs: http://localhost:8082/docs (only when ENABLE_DOCS=true)
 
 import uvicorn
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.api.analytics_api import router as analytics_router
@@ -24,14 +23,7 @@ def create_app(enable_docs: bool = settings.ENABLE_DOCS) -> FastAPI:
         openapi_url="/openapi.json" if enable_docs else None,
     )
 
-    # CORS — allow frontend origins
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # No CORS middleware: this service is called only by the Go backend, never by browsers.
 
     # Mount analytics router
     app.include_router(analytics_router)
