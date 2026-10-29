@@ -6,6 +6,7 @@ Required secrets have no defaults: the service refuses to start without them.
 
 import os
 from dotenv import load_dotenv
+from sqlalchemy.engine import URL
 
 # Load .env from the Go backend if available
 _backend_env = os.path.join(os.path.dirname(__file__), "..", "..", "discipline-back", ".env")
@@ -17,6 +18,7 @@ load_dotenv()
 
 
 MIN_JWT_SECRET_LEN = 32
+SSL_MODES = ("disable", "allow", "prefer", "require", "verify-ca", "verify-full")
 
 
 class ConfigError(RuntimeError):
@@ -43,6 +45,9 @@ class Settings:
         self.DB_USER: str = os.getenv("DB_USER", "postgres")
         self.DB_PASSWORD: str = _require("DB_PASSWORD", problems)
         self.DB_NAME: str = os.getenv("DB_NAME", "discipline")
+        self.DB_SSLMODE: str = os.getenv("DB_SSLMODE", "require").strip() or "require"
+        if self.DB_SSLMODE not in SSL_MODES:
+            problems.append("DB_SSLMODE must be one of: " + ", ".join(SSL_MODES))
 
         # Security: shared with the Go backend, which signs per-request tokens with it
         self.INTERNAL_JWT_SECRET: str = _require("INTERNAL_JWT_SECRET", problems)
@@ -56,10 +61,15 @@ class Settings:
             raise ConfigError("Invalid configuration: " + "; ".join(problems))
 
     @property
-    def DATABASE_URL(self) -> str:
-        return (
-            f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}"
-            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+    def DATABASE_URL(self) -> URL:
+        return URL.create(
+            "postgresql",
+            username=self.DB_USER,
+            password=self.DB_PASSWORD,
+            host=self.DB_HOST,
+            port=self.DB_PORT,
+            database=self.DB_NAME,
+            query={"sslmode": self.DB_SSLMODE},
         )
 
     # Analytics service: Locally use ANALYTICS_PORT, in Railway fall back to dynamic PORT
