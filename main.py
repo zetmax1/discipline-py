@@ -5,12 +5,35 @@ Docs: http://localhost:8082/docs (only when ENABLE_DOCS=true)
 """
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from app import schemas
 from app.config import settings
 from app.api.analytics_api import router as analytics_router
 from app.smart_schedule.router import router as smart_schedule_router
+
+def _field_path(loc) -> str:
+    """("body", "commitments", 0, "startTime") -> "commitments[0].startTime" """
+    path = ""
+    for part in loc:
+        if part == "body":
+            continue
+        if isinstance(part, int):
+            path += f"[{part}]"
+        else:
+            path += ("." if path else "") + str(part)
+    return path or "body"
+
+
+async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """422 with a readable message per field (input values are never echoed back)."""
+    details = [{"field": _field_path(e["loc"]), "message": e["msg"].removeprefix("Value error, ")}
+               for e in exc.errors()]
+    error = "; ".join(f"{d['field']}: {d['message']}" for d in details)
+    return JSONResponse(status_code=422, content={"error": error, "details": details})
+
 
 def create_app(enable_docs: bool = settings.ENABLE_DOCS) -> FastAPI:
     """Build the FastAPI app; API docs are only mounted when enable_docs is true."""
@@ -25,6 +48,8 @@ def create_app(enable_docs: bool = settings.ENABLE_DOCS) -> FastAPI:
     )
 
     # No CORS middleware: this service is called only by the Go backend, never by browsers.
+
+    app.add_exception_handler(RequestValidationError, validation_error)
 
     # Mount analytics router
     app.include_router(analytics_router)
