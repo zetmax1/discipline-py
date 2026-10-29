@@ -57,6 +57,30 @@ class Patterns(BaseModel):
     insights: list[str]
 
 
+class SeriesPoint(BaseModel):
+    label: str
+    value: float | None
+
+
+class GaugeData(BaseModel):
+    score: float | None
+
+
+class GaugeChart(BaseModel):
+    image: str  # base64 PNG ("" when there is nothing to draw)
+    data: GaugeData
+
+
+class SeriesChart(BaseModel):
+    image: str
+    data: list[SeriesPoint]
+
+
+class PeriodCharts(BaseModel):
+    focus_gauge: GaugeChart
+    category_distribution: SeriesChart
+
+
 class PeriodReport(BaseModel):
     range: Literal["week", "month"]
     start_date: str
@@ -71,7 +95,7 @@ class PeriodReport(BaseModel):
     streak: int
     comparison: Comparison
     patterns: Union[InsufficientData, Patterns]
-    charts: dict[str, str]
+    charts: PeriodCharts
 
 
 class HeatmapData(BaseModel):
@@ -95,6 +119,16 @@ class DistractionPoint(BaseModel):
     distractions_per_hour: float | None
 
 
+class HeatmapChart(BaseModel):
+    image: str
+    data: HeatmapData
+
+
+class FocusCharts(BaseModel):
+    focus_heatmap: HeatmapChart
+    distraction_trend: SeriesChart
+
+
 class FocusPatternsResponse(BaseModel):
     start_date: str
     end_date: str
@@ -103,7 +137,7 @@ class FocusPatternsResponse(BaseModel):
     productivity_by_weekday: list[WeekdayScore]
     deep_work_by_slot: list[SlotMinutes]
     distraction_trend: list[DistractionPoint]
-    charts: dict[str, str]
+    charts: FocusCharts
 
 
 class ServiceInfo(BaseModel):

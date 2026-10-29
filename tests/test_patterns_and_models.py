@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 
 import main
 from app import reports, schemas, timeutil
-from app.api import analytics_api
 from app.database import get_db
 from app.metrics import Block
 from tests.test_internal_auth import bearer, make_token
@@ -72,10 +71,6 @@ def test_every_route_declares_a_response_model():
 @pytest.fixture
 def client(monkeypatch):
     use_blocks(monkeypatch, [day_block(i) for i in range(0, 9)])
-    for name in ("focus_score_gauge", "focus_heatmap", "distraction_trend"):
-        if hasattr(analytics_api, name):
-            monkeypatch.setattr(analytics_api, name, lambda *a, **k: "")
-    monkeypatch.setattr(analytics_api.charts, "category_distribution", lambda *a, **k: "")
     main.app.dependency_overrides[get_db] = lambda: None
     yield TestClient(main.app)
     main.app.dependency_overrides.clear()

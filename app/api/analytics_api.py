@@ -6,12 +6,9 @@ Every number comes from app.metrics via app.reports.
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app import reports, schemas
+from app import charts, reports, schemas
 from app.auth import get_current_tz, get_current_user, get_current_user_id
 from app.database import get_db
-from app.visualization import charts
-from app.visualization.focus_heatmap import focus_heatmap
-from app.visualization.productivity_plot import distraction_trend, focus_score_gauge
 
 
 router = APIRouter(
@@ -21,13 +18,12 @@ router = APIRouter(
 )
 
 
-def _period_charts(report: dict) -> dict:
-    score = report["focus_score"]
+def _period_charts(user_id: int, report: dict) -> dict:
+    endpoint = "weekly" if report["range"] == "week" else "monthly"
+    categories = [{"label": c["category"], "value": round(c["minutes"] / 60, 2)} for c in report["category_minutes"]]
     return {
-        "focus_gauge": focus_score_gauge(round(score)) if score is not None else "",
-        "category_distribution": charts.category_distribution(
-            {c["category"]: c["minutes"] / 60 for c in report["category_minutes"]}
-        ),
+        "focus_gauge": charts.gauge_chart(user_id, endpoint, report["range"], report["focus_score"]),
+        "category_distribution": charts.category_chart(user_id, endpoint, report["range"], categories),
     }
 
 
@@ -57,7 +53,7 @@ def get_weekly_analytics(
 ):
     """This week's daily metrics, mean focus score, categories and comparison with last week."""
     report = reports.period_report(db, user_id, tz, "week")
-    report["charts"] = _period_charts(report)
+    report["charts"] = _period_charts(user_id, report)
     return report
 
 
@@ -69,7 +65,7 @@ def get_monthly_analytics(
 ):
     """This month's daily metrics, mean focus score, categories and comparison with last month."""
     report = reports.period_report(db, user_id, tz, "month")
-    report["charts"] = _period_charts(report)
+    report["charts"] = _period_charts(user_id, report)
     return report
 
 
@@ -86,12 +82,10 @@ def get_focus_patterns(
 ):
     """Heatmap, weekday scores, deep-work slots and distraction trend over the last N days."""
     data = reports.focus_patterns(db, user_id, tz, days)
-    heat = data["heatmap"]
     data["charts"] = {
-        "focus_heatmap": focus_heatmap({**heat, "values": dict(zip(heat["weekdays"], heat["values"]))}),
-        "distraction_trend": distraction_trend([
-            {"date": p["date"], "avg_distractions": p["distractions_per_hour"]}
-            for p in data["distraction_trend"] if p["distractions_per_hour"] is not None
+        "focus_heatmap": charts.heatmap_chart(user_id, "focus-patterns", days, data["heatmap"]),
+        "distraction_trend": charts.trend_chart(user_id, "focus-patterns", days, [
+            {"label": p["date"], "value": p["distractions_per_hour"]} for p in data["distraction_trend"]
         ]),
     }
     return data
