@@ -10,6 +10,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.services.metrics_service import MetricsService
+from app.timeutil import local_now
 
 
 class MonthlyAnalysis:
@@ -18,12 +19,12 @@ class MonthlyAnalysis:
     def __init__(self, db: Session):
         self.db = db
 
-    def analyse(self, user_id: int, reference_date: datetime | None = None) -> dict:
+    def analyse(self, user_id: int, reference_date: datetime | None = None, *, tz: str) -> dict:
         """
         Full monthly analysis with weekly sub-breakdowns,
         discipline index trend, and category distribution.
         """
-        d = reference_date or datetime.now()
+        d = reference_date or local_now(tz)
         first = d.replace(day=1)
         if d.month == 12:
             last = d.replace(year=d.year + 1, month=1, day=1) - timedelta(days=1)

@@ -10,6 +10,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.services.metrics_service import MetricsService
+from app.timeutil import local_now
 
 
 class PatternDetection:
@@ -18,12 +19,12 @@ class PatternDetection:
     def __init__(self, db: Session):
         self.db = db
 
-    def detect(self, user_id: int, days: int = 30) -> dict:
+    def detect(self, user_id: int, days: int = 30, *, tz: str) -> dict:
         """
         Run pattern detection over the last N days.
         Returns identified patterns and recommendations.
         """
-        end = datetime.now()
+        end = local_now(tz)
         start = end - timedelta(days=days - 1)
         df = MetricsService.load_tasks(
             self.db, user_id,

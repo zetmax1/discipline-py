@@ -9,6 +9,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.services.metrics_service import MetricsService
+from app.timeutil import local_now
 
 
 class WeeklyAnalysis:
@@ -17,12 +18,12 @@ class WeeklyAnalysis:
     def __init__(self, db: Session):
         self.db = db
 
-    def analyse(self, user_id: int, reference_date: datetime | None = None) -> dict:
+    def analyse(self, user_id: int, reference_date: datetime | None = None, *, tz: str) -> dict:
         """
         Run a full weekly analysis.
         Returns per-day metrics, best/worst days, and streaks.
         """
-        d = reference_date or datetime.now()
+        d = reference_date or local_now(tz)
         monday = d - timedelta(days=d.weekday())
         sunday = monday + timedelta(days=6)
         start = monday.strftime("%Y-%m-%d")

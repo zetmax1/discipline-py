@@ -5,21 +5,25 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app.models.task import Task
+from app.timeutil import local_now
 from app.smart_schedule.schemas import SmartScheduleRequest, SmartScheduleResponse, ScheduleBlock, Commitment
 
 
 class ScheduleGenerator:
     DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-    def __init__(self, db: Session, user_id: int):
+    def __init__(self, db: Session, user_id: int, tz: str):
         self.db = db
         self.user_id = user_id
+        self.tz = tz
         self._learned_patterns = {}
 
+    def history_cutoff(self, days_back: int) -> str:
+        """Earliest history date (YYYY-MM-DD), counted back from today in the user's zone."""
+        return (local_now(self.tz) - timedelta(days=days_back)).strftime('%Y-%m-%d')
+
     def fetch_history(self, days_back: int = 30):
-        # Calculate cutoff date
-        cutoff = datetime.now() - timedelta(days=days_back)
-        cutoff_str = cutoff.strftime('%Y-%m-%d')
+        cutoff_str = self.history_cutoff(days_back)
         
         # Fetch tasks
         tasks = self.db.query(Task).filter(

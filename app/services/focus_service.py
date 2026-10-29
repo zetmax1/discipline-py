@@ -10,6 +10,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.services.metrics_service import MetricsService
+from app.timeutil import local_now
 
 
 class FocusService:
@@ -22,7 +23,7 @@ class FocusService:
     #  Focus patterns report
     # ------------------------------------------------------------------ #
 
-    def focus_patterns(self, user_id: int, days: int = 30) -> dict:
+    def focus_patterns(self, user_id: int, days: int = 30, *, tz: str) -> dict:
         """
         Analyse focus patterns over the last N days.
         Returns:
@@ -31,7 +32,7 @@ class FocusService:
           - best_day: most productive weekday
           - distraction_trend: daily average distractions
         """
-        end = datetime.now()
+        end = local_now(tz)
         start = end - timedelta(days=days - 1)
         df = MetricsService.load_tasks(
             self.db, user_id,

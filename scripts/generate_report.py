@@ -28,7 +28,7 @@ from app.visualization.productivity_plot import (
 )
 
 
-def generate_report(user_id: int, output_dir: str):
+def generate_report(user_id: int, output_dir: str, tz: str):
     """Generate a full analytics report and save charts + JSON."""
     os.makedirs(output_dir, exist_ok=True)
     db = SessionLocal()
@@ -41,11 +41,11 @@ def generate_report(user_id: int, output_dir: str):
         focus_svc = FocusService(db)
 
         # Analysis
-        weekly = WeeklyAnalysis(db).analyse(user_id)
-        monthly = MonthlyAnalysis(db).analyse(user_id)
-        patterns = PatternDetection(db).detect(user_id)
-        trend = prod_svc.productivity_trend(user_id, days=30)
-        focus = focus_svc.focus_patterns(user_id, days=30)
+        weekly = WeeklyAnalysis(db).analyse(user_id, tz=tz)
+        monthly = MonthlyAnalysis(db).analyse(user_id, tz=tz)
+        patterns = PatternDetection(db).detect(user_id, tz=tz)
+        trend = prod_svc.productivity_trend(user_id, days=30, tz=tz)
+        focus = focus_svc.focus_patterns(user_id, days=30, tz=tz)
 
         # Save JSON report
         report = {
@@ -127,6 +127,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate analytics report")
     parser.add_argument("--user-id", type=int, required=True, help="User ID")
     parser.add_argument("--output", default="./reports", help="Output directory")
+    parser.add_argument("--tz", default="Asia/Tashkent", help="User's IANA time zone")
     args = parser.parse_args()
 
-    generate_report(args.user_id, args.output)
+    generate_report(args.user_id, args.output, args.tz)

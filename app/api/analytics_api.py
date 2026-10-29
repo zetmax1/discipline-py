@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user_id
+from app.auth import get_current_tz, get_current_user, get_current_user_id
 from app.database import get_db
 from app.services.productivity_service import ProductivityService
 from app.services.focus_service import FocusService
@@ -27,7 +27,7 @@ from app.visualization.productivity_plot import (
 router = APIRouter(
     prefix="/analytics",
     tags=["Analytics"],
-    dependencies=[Depends(get_current_user_id)]
+    dependencies=[Depends(get_current_user)]
 )
 
 
@@ -38,6 +38,7 @@ router = APIRouter(
 @router.get("/weekly")
 def get_weekly_analytics(
     user_id: int = Depends(get_current_user_id),
+    tz: str = Depends(get_current_tz),
     db: Session = Depends(get_db),
 ):
     """
@@ -47,8 +48,8 @@ def get_weekly_analytics(
     svc = ProductivityService(db)
     analysis = WeeklyAnalysis(db)
 
-    report = svc.weekly_report(user_id)
-    detailed = analysis.analyse(user_id)
+    report = svc.weekly_report(user_id, tz=tz)
+    detailed = analysis.analyse(user_id, tz=tz)
 
     # Generate charts
     daily = report["daily_breakdown"]
@@ -74,6 +75,7 @@ def get_weekly_analytics(
 @router.get("/monthly")
 def get_monthly_analytics(
     user_id: int = Depends(get_current_user_id),
+    tz: str = Depends(get_current_tz),
     db: Session = Depends(get_db),
 ):
     """
@@ -83,8 +85,8 @@ def get_monthly_analytics(
     svc = ProductivityService(db)
     analysis = MonthlyAnalysis(db)
 
-    report = svc.monthly_report(user_id)
-    detailed = analysis.analyse(user_id)
+    report = svc.monthly_report(user_id, tz=tz)
+    detailed = analysis.analyse(user_id, tz=tz)
 
     # Charts
     weekly_metrics = [
@@ -130,6 +132,7 @@ def get_monthly_analytics(
 @router.get("/productivity-trend")
 def get_productivity_trend(
     user_id: int = Depends(get_current_user_id),
+    tz: str = Depends(get_current_tz),
     days: int = Query(30, ge=7, le=365, description="Number of days"),
     db: Session = Depends(get_db),
 ):
@@ -138,11 +141,11 @@ def get_productivity_trend(
     Returns daily metrics and trend line chart.
     """
     svc = ProductivityService(db)
-    trend_data = svc.productivity_trend(user_id, days=days)
+    trend_data = svc.productivity_trend(user_id, days=days, tz=tz)
 
     # Pattern detection
     patterns = PatternDetection(db)
-    detected = patterns.detect(user_id, days=days)
+    detected = patterns.detect(user_id, days=days, tz=tz)
 
     # Chart
     chart = charts.completion_rate_trend(
@@ -166,6 +169,7 @@ def get_productivity_trend(
 @router.get("/focus-patterns")
 def get_focus_patterns(
     user_id: int = Depends(get_current_user_id),
+    tz: str = Depends(get_current_tz),
     days: int = Query(30, ge=7, le=365, description="Number of days"),
     db: Session = Depends(get_db),
 ):
@@ -174,7 +178,7 @@ def get_focus_patterns(
     distraction trends, and deep work distribution.
     """
     svc = FocusService(db)
-    data = svc.focus_patterns(user_id, days=days)
+    data = svc.focus_patterns(user_id, days=days, tz=tz)
 
     # Charts
     chart_heatmap = focus_heatmap(data["heatmap_data"])

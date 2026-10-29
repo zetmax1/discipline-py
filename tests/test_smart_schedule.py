@@ -25,7 +25,7 @@ class MockDB:
 
 def test_history_learning():
     db = MockDB()
-    generator = ScheduleGenerator(db, 1)
+    generator = ScheduleGenerator(db, 1, "Asia/Tashkent")
     generator.fetch_history(days_back=30)
     
     # 8+9 / 2 = 8
@@ -35,7 +35,7 @@ def test_history_learning():
 
 def test_generate_schedule():
     db = MockDB()
-    generator = ScheduleGenerator(db, 1)
+    generator = ScheduleGenerator(db, 1, "Asia/Tashkent")
     
     req = SmartScheduleRequest(
         commitments=[

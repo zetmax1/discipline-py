@@ -24,9 +24,11 @@ SCHEDULE_BODY = {
 }
 
 
-def make_token(sub="7", aud=AUDIENCE, exp_in=60, secret=SECRET, alg="HS256", **extra):
+def make_token(sub="7", aud=AUDIENCE, exp_in=60, secret=SECRET, alg="HS256", tz="Asia/Tashkent", **extra):
     now = int(time.time())
     claims = {"iat": now, **extra}
+    if tz is not None:
+        claims["tz"] = tz
     if sub is not None:
         claims["sub"] = sub
     if aud is not None:
@@ -49,7 +51,7 @@ def seen():
 @pytest.fixture
 def client(monkeypatch, seen):
     class FakeGenerator:
-        def __init__(self, db, user_id):
+        def __init__(self, db, user_id, tz):
             seen.append(user_id)
 
         def generate(self, request):
@@ -59,7 +61,7 @@ def client(monkeypatch, seen):
         def __init__(self, db):
             pass
 
-        def focus_patterns(self, user_id, days=30):
+        def focus_patterns(self, user_id, days=30, tz="UTC"):
             seen.append(user_id)
             return {
                 "heatmap_data": {},
@@ -113,10 +115,15 @@ def test_old_api_key_alone_rejected(client, method, path, body):
         pytest.param(make_token(sub=None), id="missing-sub"),
         pytest.param(make_token(sub="abc"), id="non-integer-sub"),
         pytest.param(make_token(sub="0"), id="zero-sub"),
+        pytest.param(make_token(tz=None), id="missing-tz"),
+        pytest.param(make_token(tz="Mars/Olympus_Mons"), id="unknown-tz"),
+        pytest.param(make_token(tz="../../etc/passwd"), id="path-tz"),
+        pytest.param(make_token(tz=""), id="empty-tz"),
+        pytest.param(make_token(tz="Asia"), id="directory-tz"),
         pytest.param(make_token(secret="x" * 40), id="wrong-secret"),
         pytest.param(make_token(alg="HS512"), id="wrong-alg"),
         pytest.param(
-            jwt.encode({"sub": "7", "aud": AUDIENCE, "exp": int(time.time()) + 60}, None, algorithm="none"),
+            jwt.encode({"sub": "7", "aud": AUDIENCE, "tz": "UTC", "exp": int(time.time()) + 60}, None, algorithm="none"),
             id="alg-none",
         ),
         pytest.param("not-a-jwt", id="garbage"),

@@ -9,6 +9,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.services.metrics_service import MetricsService
+from app.timeutil import local_now
 
 
 class ProductivityService:
@@ -26,17 +27,17 @@ class ProductivityService:
         return MetricsService.load_tasks(self.db, user_id, start, end)
 
     @staticmethod
-    def _week_range(reference: datetime | None = None):
+    def _week_range(reference: datetime):
         """Return (monday, sunday) as YYYY-MM-DD strings for the given week."""
-        d = reference or datetime.now()
+        d = reference
         monday = d - timedelta(days=d.weekday())
         sunday = monday + timedelta(days=6)
         return monday.strftime("%Y-%m-%d"), sunday.strftime("%Y-%m-%d")
 
     @staticmethod
-    def _month_range(reference: datetime | None = None):
+    def _month_range(reference: datetime):
         """Return (first_day, last_day) of the month as YYYY-MM-DD strings."""
-        d = reference or datetime.now()
+        d = reference
         first = d.replace(day=1)
         # last day: jump to next month, subtract 1 day
         if d.month == 12:
@@ -49,11 +50,12 @@ class ProductivityService:
     #  Weekly report
     # ------------------------------------------------------------------ #
 
-    def weekly_report(self, user_id: int, reference_date: datetime | None = None) -> dict:
+    def weekly_report(self, user_id: int, reference_date: datetime | None = None, *, tz: str) -> dict:
         """
         Generate a full weekly analytics report.
         Returns metrics, daily breakdown, and category distribution.
         """
+        reference_date = reference_date or local_now(tz)
         start, end = self._week_range(reference_date)
         df = self._load(user_id, start, end)
 
@@ -81,7 +83,7 @@ class ProductivityService:
             category_dist = {k: round(v, 2) for k, v in cat_hours.to_dict().items()}
 
         # Previous week comparison
-        prev_ref = (reference_date or datetime.now()) - timedelta(weeks=1)
+        prev_ref = reference_date - timedelta(weeks=1)
         prev_start, prev_end = self._week_range(prev_ref)
         prev_df = self._load(user_id, prev_start, prev_end)
         prev_score = MetricsService.focus_score(prev_df)
@@ -100,12 +102,12 @@ class ProductivityService:
     #  Monthly report
     # ------------------------------------------------------------------ #
 
-    def monthly_report(self, user_id: int, reference_date: datetime | None = None) -> dict:
+    def monthly_report(self, user_id: int, reference_date: datetime | None = None, *, tz: str) -> dict:
         """
         Generate a monthly analytics report.
         Includes weekly sub-breakdowns and overall monthly stats.
         """
-        start, end = self._month_range(reference_date)
+        start, end = self._month_range(reference_date or local_now(tz))
         df = self._load(user_id, start, end)
 
         overall = {
@@ -152,12 +154,12 @@ class ProductivityService:
     #  Productivity trend
     # ------------------------------------------------------------------ #
 
-    def productivity_trend(self, user_id: int, days: int = 30) -> dict:
+    def productivity_trend(self, user_id: int, days: int = 30, *, tz: str) -> dict:
         """
         Return daily focus scores and completion rates for the last N days.
         Used for trend line charts.
         """
-        end = datetime.now()
+        end = local_now(tz)
         start = end - timedelta(days=days - 1)
         df = self._load(user_id, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
 
