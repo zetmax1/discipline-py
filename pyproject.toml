@@ -13,6 +13,7 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Header"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # import app/ and main.py when run as plain `pytest`
 
 [tool.mypy]
 python_version = "3.12"
