@@ -1,0 +1,22 @@
+# Throwaway Postgres for the database tests only. Data lives in tmpfs and is
+# gone when the container stops. Never point tests at a real database.
+# `make test` starts it; by hand:
+#   docker compose -f docker-compose.test.yml up -d --wait
+#   export TEST_DATABASE_URL='postgres://postgres:test@127.0.0.1:55433/postgres?sslmode=disable'
+#   pytest
+#   docker compose -f docker-compose.test.yml down
+services:
+  postgres-test:
+    image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+    environment:
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:55433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

@@ -36,6 +36,20 @@ python3.12 -m venv /tmp/lock && /tmp/lock/bin/pip install -r requirements.in
 /tmp/lock/bin/pip freeze | grep -v '^pip==\|^setuptools==' >> requirements.txt   # replace the old pins
 ```
 
+## Checks
+
+```bash
+pip install -r requirements-dev.txt
+make check
+```
+
+Runs ruff, mypy, pytest against a throwaway Postgres (`docker-compose.test.yml`, started by
+`make test`; fails if any test was skipped), pip-audit, bandit and gitleaks over the full
+history. Needs Docker and `../discipline` checked out for the contract test. bandit findings
+reviewed as false positives are in `.bandit-baseline.json` (type-narrowing `assert`s, the
+internal JWT's audience/algorithm names, the `0.0.0.0` bind the container needs); any other
+finding fails.
+
 ## API Endpoints
 
 Every endpoint requires `Authorization: Bearer <internal JWT>` signed by the Go backend

@@ -1,0 +1,16 @@
+# gitleaks: default rules plus one narrow allowlist for the fixed dummy secret
+# that tests use. Only this exact value is ignored, wherever it appears (it is
+# not valid anywhere); any other secret, in test files too, still fails.
+# Note: a path entry in a global allowlist skips whole files before scanning, so
+# allowlisting test paths would hide real secrets in them. Do not add paths here.
+title = "discipline-py gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dummy secret used only by tests; never valid anywhere"
+regexTarget = "secret"
+regexes = [
+  '''^internal-secret-for-tests-0123456789$''',
+]
