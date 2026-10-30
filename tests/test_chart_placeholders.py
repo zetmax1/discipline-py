@@ -4,7 +4,7 @@ placeholder image instead of raising, so one odd row can't 500 the Analytics pag
 """
 
 import base64
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -53,7 +53,7 @@ def test_real_data_is_not_a_placeholder():
 
 
 def test_completed_zero_duration_task_does_not_500(monkeypatch):
-    monkeypatch.setattr(timeutil, "_utcnow", lambda: datetime(2026, 10, 29, 7, 0, tzinfo=timezone.utc))
+    monkeypatch.setattr(timeutil, "_utcnow", lambda: datetime(2026, 10, 29, 7, 0, tzinfo=UTC))
     zero = Block(day=date(2026, 10, 27), start="10:00", end="10:00", category="deep-work", status="completed")
     monkeypatch.setattr(reports, "load_blocks", lambda db, u, s, e: [zero] if s <= zero.day <= e else [])
     main.app.dependency_overrides[get_db] = lambda: None

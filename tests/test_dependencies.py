@@ -26,4 +26,4 @@ def test_no_source_imports_the_removed_packages():
     for path in sources:
         text = path.read_text()
         for pkg in UNUSED:
-            assert not re.search(rf"^\s*(import|from)\s+{pkg}\b|\"(import|from) {pkg}\b", text, re.M), f"{path} imports {pkg}"
+            assert not re.search(rf"^\s*(import|from)\s+{pkg}\b|\"(import|from) {pkg}\b", text, re.MULTILINE), f"{path} imports {pkg}"

@@ -32,7 +32,7 @@ SAMPLE = [{"label": "deep-work", "value": 2.0}, {"label": "study", "value": 1.0}
 
 def test_app_never_imports_pyplot():
     code = "import sys; import main; from app import charts; print('matplotlib.pyplot' in sys.modules)"
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=".")
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=".", check=False)
     assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == "False"
 

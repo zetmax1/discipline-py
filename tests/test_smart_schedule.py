@@ -103,7 +103,7 @@ def test_bad_commitments_get_422_with_field_message(client, change, field):
 @pytest.mark.parametrize("value", ["-1", "80.5", "81", "0.3", "1e309", '"lots"', "NaN", "null"])
 def test_bad_goals_get_422(client, value):
     # raw JSON text so out-of-range literals like 1e309 / NaN reach the server unchanged
-    body = '{"commitments": [], "goals": {"deepWorkHours": 15, "studyHours": %s, "restHours": 7}}' % value
+    body = f'{{"commitments": [], "goals": {{"deepWorkHours": 15, "studyHours": {value}, "restHours": 7}}}}'
     r = client.post("/analytics/smart-schedule", content=body,
                     headers={**bearer(make_token()), "Content-Type": "application/json"})
     assert r.status_code == 422, r.text

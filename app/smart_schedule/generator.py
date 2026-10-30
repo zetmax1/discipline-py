@@ -1,13 +1,18 @@
 import statistics
 import uuid
 from datetime import timedelta
+from typing import ClassVar
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.metrics import parse_clock
 from app.models.task import Task
-from app.smart_schedule.schemas import ScheduleBlock, SmartScheduleRequest, SmartScheduleResponse
+from app.smart_schedule.schemas import (
+    ScheduleBlock,
+    SmartScheduleRequest,
+    SmartScheduleResponse,
+)
 from app.timeutil import local_now
 
 SLOT = 30                        # minutes; every placed block starts/ends on a 30-minute boundary
@@ -30,15 +35,15 @@ def _fmt(minutes: int) -> str:
 
 
 def _round_to_slot(minutes: float) -> int:
-    return int(round(minutes / SLOT)) * SLOT
+    return round(minutes / SLOT) * SLOT
 
 
 class ScheduleGenerator:
-    DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    DAYS: ClassVar[list[str]] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
     # Which days each category uses and their relative share (existing pattern:
     # deep work on weekdays, lighter study on weekends, rest every day).
-    DAY_WEIGHTS = {
+    DAY_WEIGHTS: ClassVar[dict[str, dict[str, int]]] = {
         "deep-work": {d: 1 for d in DAYS[:5]},
         "study": {**{d: 2 for d in DAYS[:5]}, "Saturday": 1, "Sunday": 1},
         "rest": {d: 1 for d in DAYS},
@@ -124,7 +129,7 @@ class ScheduleGenerator:
             else:
                 reasoning.append(f"{label}: Default placement — not enough history yet (placed around {_fmt(preferred)}).")
 
-            needed = int(round(getattr(request.goals, goal_field) * 60 / SLOT))
+            needed = round(getattr(request.goals, goal_field) * 60 / SLOT)
             weights = self.DAY_WEIGHTS[category]
             lo, hi, pref = DAY_START // SLOT, window_end // SLOT, preferred // SLOT
             taken = {day: self._take(free[day], q, pref, lo, hi) for day, q in self._quotas(needed, weights).items()}

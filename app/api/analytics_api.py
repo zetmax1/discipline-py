@@ -10,7 +10,6 @@ from app import charts, reports, schemas
 from app.auth import get_current_tz, get_current_user, get_current_user_id
 from app.database import get_db
 
-
 router = APIRouter(
     prefix="/analytics",
     tags=["Analytics"],

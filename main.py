@@ -12,10 +12,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app import database, schemas
+from app.api.analytics_api import router as analytics_router
 from app.config import settings
 from app.errtrack import init_sentry
 from app.observability import RequestIDMiddleware, setup_logging
-from app.api.analytics_api import router as analytics_router
 from app.smart_schedule.router import router as smart_schedule_router
 
 logger = logging.getLogger(__name__)

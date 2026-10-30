@@ -11,7 +11,7 @@ ANALYTICS_CONTRACT at the schema file.
 import copy
 import json
 import os
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -29,7 +29,7 @@ CONTRACT_PATH = Path(os.getenv(
     "ANALYTICS_CONTRACT", REPO_ROOT.parent / "discipline" / "contracts" / "analytics.schema.json"))
 
 TODAY = date(2026, 10, 29)
-NOON_TASHKENT = datetime(2026, 10, 29, 7, 0, tzinfo=timezone.utc)
+NOON_TASHKENT = datetime(2026, 10, 29, 7, 0, tzinfo=UTC)
 
 
 def load_contract() -> dict:
@@ -44,7 +44,7 @@ def blk(days_ago, start, end, category="deep-work", status="completed", distract
                  category=category, status=status, distractions=distractions)
 
 
-RICH = [blk(i, "09:00", "11:00", distractions=i % 3) for i in range(0, 12)] + [
+RICH = [blk(i, "09:00", "11:00", distractions=i % 3) for i in range(12)] + [
     blk(1, "13:00", "14:00", category="study"),
     blk(2, "15:00", "16:00", category="admin", status="skipped"),
     blk(0, "20:00", "21:00", category="rest", status="pending"),

@@ -10,7 +10,7 @@ import secrets
 import sys
 import time
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TextIO
 
 import sentry_sdk
@@ -28,7 +28,7 @@ class JSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         out = {
-            "time": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
+            "time": datetime.fromtimestamp(record.created, UTC).isoformat(),
             "level": record.levelname,
             "msg": record.getMessage(),
             "logger": record.name,

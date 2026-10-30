@@ -102,7 +102,7 @@ class DayMetrics:
 
 
 def round_half_up(x: float) -> int:
-    return int(math.floor(x + 0.5))
+    return math.floor(x + 0.5)
 
 
 def day_metrics(day: date, blocks: list[Block], now: datetime) -> DayMetrics:

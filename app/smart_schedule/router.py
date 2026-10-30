@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_tz, get_current_user, get_current_user_id
 from app.database import get_db
-from app.smart_schedule.schemas import SmartScheduleRequest, SmartScheduleResponse
 from app.smart_schedule.generator import ScheduleGenerator
+from app.smart_schedule.schemas import SmartScheduleRequest, SmartScheduleResponse
 
 router = APIRouter(
     prefix="/analytics",

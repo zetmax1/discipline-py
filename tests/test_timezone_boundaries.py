@@ -4,7 +4,7 @@ The clock is frozen at Sunday 2026-10-25 19:30 UTC, which is already
 Monday 2026-10-26 00:30 in Asia/Tashkent (UTC+5).
 """
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -12,7 +12,7 @@ from app import reports, timeutil
 from app.smart_schedule.generator import ScheduleGenerator
 
 TASHKENT = "Asia/Tashkent"
-SUNDAY_1930_UTC = datetime(2026, 10, 25, 19, 30, tzinfo=timezone.utc)
+SUNDAY_1930_UTC = datetime(2026, 10, 25, 19, 30, tzinfo=UTC)
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def test_week_report_in_utc_is_still_previous_week(frozen, ranges):
 
 
 def test_month_boundary_uses_local_month(frozen, ranges):
-    frozen(datetime(2026, 10, 31, 19, 30, tzinfo=timezone.utc))  # 2026-11-01 00:30 Tashkent
+    frozen(datetime(2026, 10, 31, 19, 30, tzinfo=UTC))  # 2026-11-01 00:30 Tashkent
     r = reports.period_report(None, 1, TASHKENT, "month")
     assert r["start_date"] == "2026-11-01"
     assert ("2026-10-01", "2026-10-31") in ranges                # previous month comparison

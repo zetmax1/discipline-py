@@ -5,6 +5,7 @@ Required secrets have no defaults: the service refuses to start without them.
 """
 
 import os
+
 from dotenv import load_dotenv
 from sqlalchemy.engine import URL
 

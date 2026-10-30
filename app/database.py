@@ -5,7 +5,7 @@ Connects to the same PostgreSQL database as the Go backend (read-only usage).
 
 import psycopg2.extensions
 from sqlalchemy import create_engine, event, text
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.config import settings
 
