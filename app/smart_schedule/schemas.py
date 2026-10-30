@@ -57,17 +57,31 @@ class SmartScheduleRequest(BaseModel):
     goals: WeeklyGoals
 
 
+BlockLabel = Literal["deep_work", "study", "light_study", "rest"]
+
+
 class ScheduleBlock(BaseModel):
     id: str
-    name: str
+    name: str          # English; the web shows `label` (translated) or the commitment's own name
     category: str      # 'fixed', 'deep-work', 'study', 'rest'
     startTime: str     # "HH:MM"
     endTime: str       # "HH:MM"
     day: str           # e.g., "Monday"
+    label: BlockLabel | None  # None for commitments
+
+
+class ScheduleReason(BaseModel):
+    """One `reasoning` line as data, so the web can translate it."""
+    code: Literal["learned", "default", "shortfall"]
+    category: str
+    start_time: str | None = None   # learned/default: usual or default start "HH:MM"
+    blocks: int | None = None       # learned: completed blocks in the last 30 days
+    minutes: int | None = None      # shortfall: minutes that did not fit
 
 
 class SmartScheduleResponse(BaseModel):
     blocks: list[ScheduleBlock]
-    reasoning: list[str]
+    reasoning: list[str]                # English, kept for old clients
+    reasons: list[ScheduleReason]
     placed_minutes: dict[str, int]      # per category
     shortfall_minutes: dict[str, int]   # requested but could not fit, per category

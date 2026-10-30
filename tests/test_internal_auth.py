@@ -55,7 +55,7 @@ def client(monkeypatch, seen):
             seen.append(user_id)
 
         def generate(self, request):
-            return SmartScheduleResponse(blocks=[], reasoning=[], placed_minutes={}, shortfall_minutes={})
+            return SmartScheduleResponse(blocks=[], reasoning=[], reasons=[], placed_minutes={}, shortfall_minutes={})
 
     def fake_load(db, user_id, start, end):
         seen.append(user_id)
