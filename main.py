@@ -34,8 +34,9 @@ def _field_path(loc) -> str:
     return path or "body"
 
 
-async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_error(request: Request, exc: Exception) -> JSONResponse:
     """422 with a readable message per field (input values are never echoed back)."""
+    assert isinstance(exc, RequestValidationError)  # registered for this type only
     details = [{"field": _field_path(e["loc"]), "message": e["msg"].removeprefix("Value error, ")}
                for e in exc.errors()]
     error = "; ".join(f"{d['field']}: {d['message']}" for d in details)

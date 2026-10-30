@@ -84,6 +84,8 @@ class ScheduleGenerator:
         """Slots overlapping the commitment. An end before the start wraps (e.g. sleep 23:00-07:00
         occupies 23:00-24:00 and 00:00-07:00 of the same day, as before)."""
         s, e = parse_clock(start), parse_clock(end)
+        if s is None or e is None:  # the request schema already rejects these
+            raise ValueError(f"commitment times must be HH:MM, got {start!r}-{end!r}")
         spans = [(s, e)] if e > s else [(s, DAY_END), (0, e)]
         return {k for k in range(SLOTS_PER_DAY) for lo, hi in spans if k * SLOT < hi and k * SLOT + SLOT > lo}
 
@@ -158,7 +160,7 @@ class ScheduleGenerator:
     @staticmethod
     def _runs(slots: list[int]) -> list[tuple[int, int]]:
         """Merge sorted slot indices into contiguous [start, end) runs."""
-        runs = []
+        runs: list[tuple[int, int]] = []
         for s in slots:
             if runs and runs[-1][1] == s:
                 runs[-1] = (runs[-1][0], s + 1)

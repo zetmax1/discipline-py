@@ -8,6 +8,7 @@ from typing import Any
 
 import sentry_sdk
 from sentry_sdk.integrations.logging import ignore_logger
+from sentry_sdk.types import Event, Hint
 
 from app.observability import access_logger, request_id_var
 
@@ -15,13 +16,14 @@ from app.observability import access_logger, request_id_var
 _KEPT_HEADERS = {"user-agent", "content-type", "x-request-id"}
 
 
-def _scrub(event: dict[str, Any], _hint: dict[str, Any]) -> dict[str, Any]:
+def _scrub(event: Event, _hint: Hint) -> Event:
     request = event.get("request")
     if isinstance(request, dict):
         for key in ("data", "cookies", "query_string", "env"):
             request.pop(key, None)
-        if isinstance(request.get("url"), str):
-            request["url"] = request["url"].split("?", 1)[0]
+        url = request.get("url")
+        if isinstance(url, str):
+            request["url"] = url.split("?", 1)[0]
         headers = request.get("headers")
         if isinstance(headers, dict):
             request["headers"] = {k: v for k, v in headers.items() if k.lower() in _KEPT_HEADERS}

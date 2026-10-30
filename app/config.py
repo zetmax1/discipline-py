@@ -78,7 +78,8 @@ class Settings:
         )
 
     # Analytics service: Locally use ANALYTICS_PORT, in Railway fall back to dynamic PORT
-    SERVICE_PORT: int = int(os.getenv("ANALYTICS_PORT") or os.getenv("PORT", "8082"))
+    _port: str = os.getenv("ANALYTICS_PORT") or os.environ.get("PORT", "8082")
+    SERVICE_PORT: int = int(_port)
     SERVICE_HOST: str = os.getenv("ANALYTICS_HOST", os.getenv("HOST", "0.0.0.0"))
 
 

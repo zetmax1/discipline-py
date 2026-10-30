@@ -61,12 +61,18 @@ class Block:
         return parse_clock(self.end)
 
     @property
-    def minutes(self) -> int:
-        """Duration; unparseable, zero-length or inverted (legacy) rows count as 0."""
+    def span(self) -> tuple[int, int] | None:
+        """(start, end) in minutes; None for unparseable, zero-length or inverted (legacy) rows."""
         s, e = self.start_min, self.end_min
         if s is None or e is None or e <= s:
-            return 0
-        return e - s
+            return None
+        return s, e
+
+    @property
+    def minutes(self) -> int:
+        """Duration; unparseable, zero-length or inverted (legacy) rows count as 0."""
+        span = self.span
+        return span[1] - span[0] if span else 0
 
     @property
     def completed(self) -> bool:

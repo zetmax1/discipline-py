@@ -5,6 +5,7 @@ zone from its `tz` claim.
 """
 
 from dataclasses import dataclass
+from typing import TypeGuard
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import jwt
@@ -33,7 +34,7 @@ class CurrentUser:
     tz: str
 
 
-def _valid_zone(name) -> bool:
+def _valid_zone(name: object) -> TypeGuard[str]:
     if not isinstance(name, str) or not name:
         return False
     try:
