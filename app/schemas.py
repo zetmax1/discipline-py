@@ -3,7 +3,7 @@ Response models for every analytics endpoint. The frontend's contract
 (discipline/contracts/analytics.schema.json) is checked against these responses.
 """
 
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -94,7 +94,7 @@ class PeriodReport(BaseModel):
     category_minutes: list[CategoryMinutes]
     streak: int
     comparison: Comparison
-    patterns: Union[InsufficientData, Patterns]
+    patterns: InsufficientData | Patterns
     charts: PeriodCharts
 
 
@@ -147,4 +147,5 @@ class ServiceInfo(BaseModel):
 
 
 class Health(BaseModel):
-    status: str
+    status: str  # "ok" or "unavailable"
+    checks: dict[str, str]  # dependency -> "ok" / "unavailable"

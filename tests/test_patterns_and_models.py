@@ -4,7 +4,7 @@ F-06: typed responses for every endpoint; patterns/insights live in the period r
 Clock: Thursday 2026-10-29 12:00 Tashkent.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from fastapi.routing import APIRoute
@@ -17,7 +17,7 @@ from app.metrics import Block
 from tests.test_internal_auth import bearer, make_token
 
 TZ = "Asia/Tashkent"
-NOON_TASHKENT = datetime(2026, 10, 29, 7, 0, tzinfo=timezone.utc)
+NOON_TASHKENT = datetime(2026, 10, 29, 7, 0, tzinfo=UTC)
 TODAY = date(2026, 10, 29)
 
 
@@ -70,7 +70,7 @@ def test_every_route_declares_a_response_model():
 
 @pytest.fixture
 def client(monkeypatch):
-    use_blocks(monkeypatch, [day_block(i) for i in range(0, 9)])
+    use_blocks(monkeypatch, [day_block(i) for i in range(9)])
     main.app.dependency_overrides[get_db] = lambda: None
     yield TestClient(main.app)
     main.app.dependency_overrides.clear()

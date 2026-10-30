@@ -18,8 +18,8 @@ import json
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Callable
 from functools import lru_cache
-from typing import Callable
 
 import numpy as np
 from matplotlib.colors import Normalize
@@ -156,11 +156,13 @@ def _draw_category(points: list[dict], title: str):
         ax = fig.add_subplot()
         labels = [p["label"] for p in points]
         sizes = [p["value"] for p in points]
-        _, _, autotexts = ax.pie(
+        pie = ax.pie(
             sizes, labels=labels, colors=[COLORS.get(lbl, "#9CA3AF") for lbl in labels],
             autopct="%1.1f%%", startangle=90, pctdistance=0.75,
-            wedgeprops=dict(width=0.4, edgecolor="white"),
+            wedgeprops={"width": 0.4, "edgecolor": "white"},
         )
+        assert len(pie) == 3  # (wedges, texts, autotexts) because autopct is set
+        _, _, autotexts = pie
         for t in autotexts:
             t.set_fontsize(10)
             t.set_fontweight("bold")

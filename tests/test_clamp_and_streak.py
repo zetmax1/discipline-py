@@ -5,7 +5,7 @@ Streak rule: a finished day counts at >= 70% completion, days with nothing
 planned are skipped, a day below 70% ends the streak.
 """
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -13,7 +13,7 @@ from app import reports, timeutil
 from app.metrics import Block
 
 TZ = "Asia/Tashkent"
-NOON_TASHKENT = datetime(2026, 10, 29, 7, 0, tzinfo=timezone.utc)
+NOON_TASHKENT = datetime(2026, 10, 29, 7, 0, tzinfo=UTC)
 
 
 def b(day, start="09:00", end="10:00", category="deep-work", status="completed"):

@@ -7,6 +7,7 @@ import statistics
 from collections import defaultdict
 from dataclasses import asdict
 from datetime import date, timedelta
+from typing import NamedTuple
 
 import numpy as np
 from sqlalchemy.orm import Session
@@ -109,7 +110,7 @@ def period_report(db: Session, user_id: int, tz: str, kind: str) -> dict:
     focus = mean_score([d.focus_score for d in days])
     prev_focus = mean_score([d.focus_score for d in prev_days])
 
-    category_minutes = defaultdict(int)
+    category_minutes: defaultdict[str, int] = defaultdict(int)
     for blk in blocks:
         if blk.completed and blk.minutes > 0:
             category_minutes[blk.category] += blk.minutes
@@ -146,13 +147,27 @@ def deep_minutes_by_hour(blocks: list[Block]) -> list[int]:
     """Completed deep-work minutes overlapping each hour [h, h+1), h = 0..23."""
     minutes = [0] * 24
     for blk in blocks:
-        if not (blk.completed and blk.category == DEEP_WORK) or blk.minutes == 0:
+        span = blk.span
+        if not (blk.completed and blk.category == DEEP_WORK) or span is None:
             continue
+        start_min, end_min = span
         for h in range(24):
-            overlap = min(blk.end_min, (h + 1) * 60) - max(blk.start_min, h * 60)
+            overlap = min(end_min, (h + 1) * 60) - max(start_min, h * 60)
             if overlap > 0:
                 minutes[h] += overlap
     return minutes
+
+
+class DueDay(NamedTuple):
+    """A day with due blocks: it always has a completion rate and a focus score."""
+    date: str
+    focus_score: int
+    completion: float
+
+
+def due_days(days: list[DayMetrics]) -> list[DueDay]:
+    return [DueDay(d.date, d.focus_score, d.completion) for d in days
+            if d.completion is not None and d.focus_score is not None]
 
 
 def patterns(db: Session, user_id: int, now) -> dict:
@@ -160,13 +175,13 @@ def patterns(db: Session, user_id: int, now) -> dict:
     end = now.date()
     start = end - timedelta(days=PATTERN_WINDOW_DAYS - 1)
     blocks = load_blocks(db, user_id, start, end)
-    daily = [d for d in days_metrics(blocks, start, end, now) if d.completion is not None]
+    daily = due_days(days_metrics(blocks, start, end, now))
 
     if len(daily) < PATTERN_MIN_DAYS:
         return {"insufficient_data": True, "days_needed": PATTERN_MIN_DAYS - len(daily),
                 "days_with_data": len(daily), "window_days": PATTERN_WINDOW_DAYS}
 
-    by_weekday = defaultdict(list)
+    by_weekday: defaultdict[int, list[int]] = defaultdict(list)
     for d in daily:
         by_weekday[date.fromisoformat(d.date).weekday()].append(d.focus_score)
     best = max(by_weekday, key=lambda wd: (statistics.mean(by_weekday[wd]), -wd))
@@ -223,15 +238,16 @@ def focus_patterns(db: Session, user_id: int, tz: str, days: int) -> dict:
     blocks = load_blocks(db, user_id, start, end)
     daily = days_metrics(blocks, start, end, now)
 
-    by_weekday = defaultdict(list)
+    by_weekday: defaultdict[int, list[int | None]] = defaultdict(list)
     for d in daily:
         by_weekday[date.fromisoformat(d.date).weekday()].append(d.focus_score)
 
     slot_minutes = {name: 0 for name, _, _ in DEEP_WORK_SLOTS}
     for blk in blocks:
-        if blk.completed and blk.category == DEEP_WORK and blk.minutes > 0:
+        span = blk.span
+        if blk.completed and blk.category == DEEP_WORK and span is not None:
             for name, lo, hi in DEEP_WORK_SLOTS:
-                if lo * 60 <= blk.start_min < hi * 60:
+                if lo * 60 <= span[0] < hi * 60:
                     slot_minutes[name] += blk.minutes
                     break
 

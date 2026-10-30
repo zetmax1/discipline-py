@@ -3,13 +3,13 @@ Time-zone aware "now" for analytics boundaries. The user's IANA zone arrives in 
 internal JWT; the server clock's zone must never decide what "today" is.
 """
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 
 def _utcnow() -> datetime:
     """Current instant in UTC (tests replace this)."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def local_now(tz: str) -> datetime:

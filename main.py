@@ -4,13 +4,44 @@ Run: python main.py
 Docs: http://localhost:8082/docs (only when ENABLE_DOCS=true)
 """
 
-import uvicorn
-from fastapi import FastAPI
+import logging
 
-from app import schemas
-from app.config import settings
+import uvicorn
+from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+from app import database, schemas
 from app.api.analytics_api import router as analytics_router
+from app.config import settings
+from app.errtrack import init_sentry
+from app.observability import RequestIDMiddleware, setup_logging
 from app.smart_schedule.router import router as smart_schedule_router
+
+logger = logging.getLogger(__name__)
+
+
+def _field_path(loc) -> str:
+    """("body", "commitments", 0, "startTime") -> "commitments[0].startTime" """
+    path = ""
+    for part in loc:
+        if part == "body":
+            continue
+        if isinstance(part, int):
+            path += f"[{part}]"
+        else:
+            path += ("." if path else "") + str(part)
+    return path or "body"
+
+
+async def validation_error(request: Request, exc: Exception) -> JSONResponse:
+    """422 with a readable message per field (input values are never echoed back)."""
+    assert isinstance(exc, RequestValidationError)  # registered for this type only
+    details = [{"field": _field_path(e["loc"]), "message": e["msg"].removeprefix("Value error, ")}
+               for e in exc.errors()]
+    error = "; ".join(f"{d['field']}: {d['message']}" for d in details)
+    return JSONResponse(status_code=422, content={"error": error, "details": details})
+
 
 def create_app(enable_docs: bool = settings.ENABLE_DOCS) -> FastAPI:
     """Build the FastAPI app; API docs are only mounted when enable_docs is true."""
@@ -26,6 +57,11 @@ def create_app(enable_docs: bool = settings.ENABLE_DOCS) -> FastAPI:
 
     # No CORS middleware: this service is called only by the Go backend, never by browsers.
 
+    app.add_exception_handler(RequestValidationError, validation_error)
+
+    # Request ID (from Gin's X-Request-ID) on every log line and response
+    app.add_middleware(RequestIDMiddleware)
+
     # Mount analytics router
     app.include_router(analytics_router)
 
@@ -36,13 +72,24 @@ def create_app(enable_docs: bool = settings.ENABLE_DOCS) -> FastAPI:
     def root():
         return {"service": "discipline-analytics", "status": "running", "version": "1.0.0"}
 
-    @app.get("/health", tags=["Health"], response_model=schemas.Health)
-    def health():
-        return {"status": "ok"}
+    @app.get("/health", tags=["Health"], response_model=schemas.Health,
+             responses={503: {"model": schemas.Health}})
+    def health(response: Response):
+        """200 when the database answers, 503 otherwise; error details go to the log only."""
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            database.ping()
+        except Exception:
+            logger.exception("health check failed: database")
+            response.status_code = 503
+            return {"status": "unavailable", "checks": {"database": "unavailable"}}
+        return {"status": "ok", "checks": {"database": "ok"}}
 
     return app
 
 
+setup_logging()
+init_sentry(settings.SENTRY_DSN, settings.SENTRY_ENVIRONMENT)
 app = create_app()
 
 
@@ -52,4 +99,5 @@ if __name__ == "__main__":
         host=settings.SERVICE_HOST,
         port=settings.SERVICE_PORT,
         reload=True,
+        log_config=None,  # keep the JSON logging set up above
     )

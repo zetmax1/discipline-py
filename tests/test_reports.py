@@ -3,7 +3,7 @@ F-07: every endpoint's numbers come from app.metrics.day_metrics.
 Clock: Thursday 2026-10-29 12:00 in Asia/Tashkent.
 """
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -11,7 +11,7 @@ from app import reports, timeutil
 from app.metrics import Block
 
 TZ = "Asia/Tashkent"
-NOON_TASHKENT = datetime(2026, 10, 29, 7, 0, tzinfo=timezone.utc)
+NOON_TASHKENT = datetime(2026, 10, 29, 7, 0, tzinfo=UTC)
 
 
 def b(day, start, end, category="deep-work", status="completed", distractions=0):

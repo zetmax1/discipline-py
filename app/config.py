@@ -5,6 +5,7 @@ Required secrets have no defaults: the service refuses to start without them.
 """
 
 import os
+
 from dotenv import load_dotenv
 from sqlalchemy.engine import URL
 
@@ -54,6 +55,10 @@ class Settings:
         if self.INTERNAL_JWT_SECRET and len(self.INTERNAL_JWT_SECRET) < MIN_JWT_SECRET_LEN:
             problems.append(f"INTERNAL_JWT_SECRET must be at least {MIN_JWT_SECRET_LEN} characters")
 
+        # Optional error reporting: empty SENTRY_DSN disables it
+        self.SENTRY_DSN: str = os.getenv("SENTRY_DSN", "").strip()
+        self.SENTRY_ENVIRONMENT: str = os.getenv("SENTRY_ENVIRONMENT", "").strip()
+
         # API docs (/docs, /redoc, /openapi.json) are served only when explicitly enabled
         self.ENABLE_DOCS: bool = os.getenv("ENABLE_DOCS", "").strip().lower() == "true"
 
@@ -73,7 +78,8 @@ class Settings:
         )
 
     # Analytics service: Locally use ANALYTICS_PORT, in Railway fall back to dynamic PORT
-    SERVICE_PORT: int = int(os.getenv("ANALYTICS_PORT") or os.getenv("PORT", "8082"))
+    _port: str = os.getenv("ANALYTICS_PORT") or os.environ.get("PORT", "8082")
+    SERVICE_PORT: int = int(_port)
     SERVICE_HOST: str = os.getenv("ANALYTICS_HOST", os.getenv("HOST", "0.0.0.0"))
 
 

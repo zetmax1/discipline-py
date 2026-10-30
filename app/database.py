@@ -4,8 +4,8 @@ Connects to the same PostgreSQL database as the Go backend (read-only usage).
 """
 
 import psycopg2.extensions
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.config import settings
 
@@ -48,6 +48,12 @@ engine = create_db_engine(settings.DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
+
+def ping() -> None:
+    """Raise if the database cannot answer a trivial query (used by /health)."""
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
 
 
 def get_db():
