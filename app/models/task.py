@@ -22,7 +22,10 @@ class Task(Base):
     # DB types are TIME / DATE; app.database returns them as "HH:MM" / "YYYY-MM-DD" text.
     start_time: Mapped[str] = mapped_column("start_time", String, nullable=False)  # "HH:MM" (end may be "24:00")
     end_time: Mapped[str] = mapped_column("end_time", String, nullable=False)      # "HH:MM"
-    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")  # pending, completed, skipped
+    # planned, in_progress, done, partial, skipped, moved (F1; "pending"/"completed" are the legacy names)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="planned")
+    actual_start_min: Mapped[int | None] = mapped_column(Integer, nullable=True)  # minutes 0-1440, F1
+    actual_end_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     distractions: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     energy: Mapped[int] = mapped_column(Integer, nullable=False, default=3)         # 1–5
     date: Mapped[str] = mapped_column(String, nullable=False, index=True)           # "YYYY-MM-DD"

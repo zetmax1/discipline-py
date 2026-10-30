@@ -133,3 +133,50 @@ def test_mean_score_excludes_days_without_data():
     assert mean_score([73, None, 88]) == 80.5
     assert mean_score([None, None]) is None
     assert mean_score([]) is None
+
+
+# ------------------------------------------------------------------ #
+#  F1: block lifecycle — actual times, partial, moved
+# ------------------------------------------------------------------ #
+
+def lifecycle(start, end, status, actual=None, category="deep-work", distractions=0):
+    a_start, a_end = actual if actual else (None, None)
+    return Block(day=PAST, start=start, end=end, category=category, status=status, distractions=distractions,
+                 actual_start_min=a_start, actual_end_min=a_end)
+
+
+def test_done_counts_its_actual_minutes_when_present():
+    m = day_metrics(PAST, [lifecycle("09:00", "11:00", "done", actual=(560, 650))], at(23))
+    assert (m.planned_minutes, m.completed_minutes, m.deep_work_minutes) == (120, 90, 90)
+    assert m.completion == 0.75
+
+
+def test_done_without_actual_times_counts_planned_minutes():
+    m = day_metrics(PAST, [lifecycle("09:00", "10:00", "done")], at(23))
+    assert m.completed_minutes == 60 and m.completion == 1
+
+
+def test_partial_counts_only_its_actual_minutes():
+    blocks = [lifecycle("09:00", "11:00", "partial", actual=(540, 570)), lifecycle("13:00", "14:00", "partial")]
+    m = day_metrics(PAST, blocks, at(23))
+    assert (m.completed_minutes, m.blocks_completed) == (30, 1)
+    assert m.completion == pytest.approx(30 / 180)
+
+
+def test_completion_is_capped_when_actual_time_runs_longer_than_planned():
+    m = day_metrics(PAST, [lifecycle("09:00", "10:00", "done", actual=(540, 660))], at(23))
+    assert m.completed_minutes == 120 and m.completion == 1
+
+
+def test_moved_blocks_count_nowhere_and_skipped_stay_planned():
+    blocks = [lifecycle("09:00", "10:00", "moved"), lifecycle("10:00", "11:00", "skipped"),
+              lifecycle("11:00", "12:00", "done")]
+    m = day_metrics(PAST, blocks, at(23))
+    assert (m.planned_minutes, m.completed_minutes, m.blocks_total) == (120, 60, 2)
+    assert m.completion == 0.5
+
+
+def test_new_and_legacy_status_names_mean_the_same():
+    old = day_metrics(PAST, [lifecycle("09:00", "10:00", "completed"), lifecycle("10:00", "11:00", "pending")], at(23))
+    new = day_metrics(PAST, [lifecycle("09:00", "10:00", "done"), lifecycle("10:00", "11:00", "planned")], at(23))
+    assert old == new

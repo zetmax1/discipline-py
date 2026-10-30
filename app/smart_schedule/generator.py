@@ -6,7 +6,7 @@ from typing import ClassVar
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.metrics import parse_clock
+from app.metrics import DONE, parse_clock
 from app.models.task import Task
 from app.smart_schedule.schemas import (
     BlockLabel,
@@ -66,7 +66,7 @@ class ScheduleGenerator:
         tasks = self.db.query(Task).filter(
             Task.user_id == self.user_id,
             Task.date >= self.history_cutoff(days_back),
-            Task.status == 'completed'
+            Task.status.in_(DONE),
         ).order_by(desc(Task.date)).all()
         self._history = {cat: [] for cat, *_ in CATEGORIES}
         for t in tasks:
