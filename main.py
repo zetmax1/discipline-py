@@ -4,17 +4,22 @@ Run: python main.py
 Docs: http://localhost:8082/docs (only when ENABLE_DOCS=true)
 """
 
+import logging
+
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app import schemas
+from app import database, schemas
 from app.config import settings
 from app.errtrack import init_sentry
 from app.observability import RequestIDMiddleware, setup_logging
 from app.api.analytics_api import router as analytics_router
 from app.smart_schedule.router import router as smart_schedule_router
+
+logger = logging.getLogger(__name__)
+
 
 def _field_path(loc) -> str:
     """("body", "commitments", 0, "startTime") -> "commitments[0].startTime" """
@@ -66,9 +71,18 @@ def create_app(enable_docs: bool = settings.ENABLE_DOCS) -> FastAPI:
     def root():
         return {"service": "discipline-analytics", "status": "running", "version": "1.0.0"}
 
-    @app.get("/health", tags=["Health"], response_model=schemas.Health)
-    def health():
-        return {"status": "ok"}
+    @app.get("/health", tags=["Health"], response_model=schemas.Health,
+             responses={503: {"model": schemas.Health}})
+    def health(response: Response):
+        """200 when the database answers, 503 otherwise; error details go to the log only."""
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            database.ping()
+        except Exception:
+            logger.exception("health check failed: database")
+            response.status_code = 503
+            return {"status": "unavailable", "checks": {"database": "unavailable"}}
+        return {"status": "ok", "checks": {"database": "ok"}}
 
     return app
 

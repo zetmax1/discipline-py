@@ -147,4 +147,5 @@ class ServiceInfo(BaseModel):
 
 
 class Health(BaseModel):
-    status: str
+    status: str  # "ok" or "unavailable"
+    checks: dict[str, str]  # dependency -> "ok" / "unavailable"
