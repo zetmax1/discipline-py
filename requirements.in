@@ -11,3 +11,4 @@ python-dotenv==1.2.4
 pydantic==2.9.0
 PyJWT==2.15.1
 tzdata==2026.6
+sentry-sdk[fastapi]==2.72.0

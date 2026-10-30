@@ -13,6 +13,7 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import TextIO
 
+import sentry_sdk
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 REQUEST_ID_HEADER = "X-Request-ID"
@@ -71,6 +72,9 @@ class RequestIDMiddleware:
         incoming = dict(scope["headers"]).get(REQUEST_ID_HEADER.lower().encode(), b"").decode("latin-1")
         request_id = incoming if _VALID_REQUEST_ID.fullmatch(incoming) else secrets.token_hex(16)
         token = request_id_var.set(request_id)
+        # Sentry captures unhandled errors outside this middleware, after the
+        # context variable is reset, so tag its per-request scope as well.
+        sentry_sdk.get_isolation_scope().set_tag("request_id", request_id)
         status = 500
         start = time.perf_counter()
 

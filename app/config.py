@@ -54,6 +54,10 @@ class Settings:
         if self.INTERNAL_JWT_SECRET and len(self.INTERNAL_JWT_SECRET) < MIN_JWT_SECRET_LEN:
             problems.append(f"INTERNAL_JWT_SECRET must be at least {MIN_JWT_SECRET_LEN} characters")
 
+        # Optional error reporting: empty SENTRY_DSN disables it
+        self.SENTRY_DSN: str = os.getenv("SENTRY_DSN", "").strip()
+        self.SENTRY_ENVIRONMENT: str = os.getenv("SENTRY_ENVIRONMENT", "").strip()
+
         # API docs (/docs, /redoc, /openapi.json) are served only when explicitly enabled
         self.ENABLE_DOCS: bool = os.getenv("ENABLE_DOCS", "").strip().lower() == "true"
 

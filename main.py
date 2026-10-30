@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app import schemas
 from app.config import settings
+from app.errtrack import init_sentry
 from app.observability import RequestIDMiddleware, setup_logging
 from app.api.analytics_api import router as analytics_router
 from app.smart_schedule.router import router as smart_schedule_router
@@ -73,6 +74,7 @@ def create_app(enable_docs: bool = settings.ENABLE_DOCS) -> FastAPI:
 
 
 setup_logging()
+init_sentry(settings.SENTRY_DSN, settings.SENTRY_ENVIRONMENT)
 app = create_app()
 
 
