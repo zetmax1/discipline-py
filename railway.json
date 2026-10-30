@@ -1,0 +1,7 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "deploy": {
+    "startCommand": "uvicorn main:app --host \"\" --port $PORT",
+    "healthcheckPath": "/health"
+  }
+}
