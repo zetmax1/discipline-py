@@ -6,10 +6,12 @@ from typing import ClassVar
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.metrics import parse_clock
+from app.metrics import DONE, parse_clock
 from app.models.task import Task
 from app.smart_schedule.schemas import (
+    BlockLabel,
     ScheduleBlock,
+    ScheduleReason,
     SmartScheduleRequest,
     SmartScheduleResponse,
 )
@@ -22,11 +24,11 @@ WORK_END = 22 * 60               # deep work / study end by 22:00
 DAY_END = 24 * 60                # nothing crosses midnight
 MIN_HISTORY_BLOCKS = 10          # completed blocks of a category needed to claim a learned preference
 
-# category, label, goal field, default start, window end
-CATEGORIES = [
-    ("deep-work", "Deep Work", "deepWorkHours", 9 * 60, WORK_END),
-    ("study", "Study", "studyHours", 14 * 60, WORK_END),
-    ("rest", "Rest", "restHours", 19 * 60, DAY_END),
+# category, label, label code (translated by the web), goal field, default start, window end
+CATEGORIES: list[tuple[str, str, BlockLabel, str, int, int]] = [
+    ("deep-work", "Deep Work", "deep_work", "deepWorkHours", 9 * 60, WORK_END),
+    ("study", "Study", "study", "studyHours", 14 * 60, WORK_END),
+    ("rest", "Rest", "rest", "restHours", 19 * 60, DAY_END),
 ]
 
 
@@ -64,7 +66,7 @@ class ScheduleGenerator:
         tasks = self.db.query(Task).filter(
             Task.user_id == self.user_id,
             Task.date >= self.history_cutoff(days_back),
-            Task.status == 'completed'
+            Task.status.in_(DONE),
         ).order_by(desc(Task.date)).all()
         self._history = {cat: [] for cat, *_ in CATEGORIES}
         for t in tasks:
@@ -112,6 +114,7 @@ class ScheduleGenerator:
         self.fetch_history()
         blocks: list[ScheduleBlock] = []
         reasoning: list[str] = []
+        reasons: list[ScheduleReason] = []
         placed_minutes: dict[str, int] = {}
         shortfall_minutes: dict[str, int] = {}
 
@@ -120,16 +123,18 @@ class ScheduleGenerator:
             for c in (c for c in request.commitments if day in c.days):
                 free[day] -= self._commitment_slots(c.startTime, c.endTime)
                 blocks.append(ScheduleBlock(id=str(uuid.uuid4()), name=c.name, category='fixed',
-                                            startTime=c.startTime, endTime=c.endTime, day=day))
+                                            startTime=c.startTime, endTime=c.endTime, day=day, label=None))
 
-        for category, label, goal_field, default, window_end in CATEGORIES:
+        for category, label, code, goal_field, default, window_end in CATEGORIES:
             preferred, learned = self.preferred_start(category, default, window_end)
             if learned:
                 n = len(self._history[category])
                 reasoning.append(f"{label}: learned from your history — usually starts around {_fmt(preferred)} "
                                  f"({n} completed blocks in the last 30 days).")
+                reasons.append(ScheduleReason(code="learned", category=category, start_time=_fmt(preferred), blocks=n))
             else:
                 reasoning.append(f"{label}: Default placement — not enough history yet (placed around {_fmt(preferred)}).")
+                reasons.append(ScheduleReason(code="default", category=category, start_time=_fmt(preferred)))
 
             needed = round(getattr(request.goals, goal_field) * 60 / SLOT)
             weights = self.DAY_WEIGHTS[category]
@@ -147,14 +152,18 @@ class ScheduleGenerator:
             shortfall_minutes[category] = missing * SLOT
             if missing:
                 reasoning.append(f"Could not fit {missing * SLOT / 60:g} h of {label} — not enough free time this week.")
+                reasons.append(ScheduleReason(code="shortfall", category=category, minutes=missing * SLOT))
 
             for day in self.DAYS:
-                name = "Light Study / Review" if category == "study" and day in ("Saturday", "Sunday") else label
+                light = category == "study" and day in ("Saturday", "Sunday")
+                name = "Light Study / Review" if light else label
+                block_label: BlockLabel = "light_study" if light else code
                 for start, end in self._runs(sorted(taken.get(day, []))):
                     blocks.append(ScheduleBlock(id=str(uuid.uuid4()), name=name, category=category,
-                                                startTime=_fmt(start * SLOT), endTime=_fmt(end * SLOT), day=day))
+                                                startTime=_fmt(start * SLOT), endTime=_fmt(end * SLOT), day=day,
+                                                label=block_label))
 
-        return SmartScheduleResponse(blocks=blocks, reasoning=reasoning,
+        return SmartScheduleResponse(blocks=blocks, reasoning=reasoning, reasons=reasons,
                                      placed_minutes=placed_minutes, shortfall_minutes=shortfall_minutes)
 
     @staticmethod

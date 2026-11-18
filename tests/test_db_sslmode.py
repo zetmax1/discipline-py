@@ -24,8 +24,9 @@ def test_sslmode_rejects_unknown_value(monkeypatch):
 
 
 def test_engine_uses_sslmode(monkeypatch):
+    from app.config import settings
     from app.database import engine
-    assert engine.url.query.get("sslmode") == "require"
+    assert engine.url.query.get("sslmode") == settings.DB_SSLMODE
 
 
 def test_database_url_escapes_password(monkeypatch):

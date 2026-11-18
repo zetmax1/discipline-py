@@ -223,3 +223,30 @@ def test_other_categories_say_default_when_only_one_has_history():
     text = generate(history=history).reasoning
     assert any(r.startswith("Study: Default placement — not enough history yet") for r in text)
     assert any(r.startswith("Rest: Default placement — not enough history yet") for r in text)
+
+
+# ------------------------------------------------------------------ #
+#  Structured reasons and labels (the web translates them)
+# ------------------------------------------------------------------ #
+
+def test_reasons_mirror_the_reasoning_text_as_codes():
+    history = [MockTask("deep-work", "08:00")] * 10
+    resp = generate([commitment("06:00", "20:00")], {"deepWorkHours": 20, "studyHours": 0, "restHours": 0},
+                    history=history)
+    by = {(r.code, r.category): r for r in resp.reasons}
+    learned = by[("learned", "deep-work")]
+    assert learned.start_time == "08:00" and learned.blocks == 10 and learned.minutes is None
+    assert by[("default", "study")].start_time == "14:00" and by[("default", "study")].blocks is None
+    assert by[("default", "rest")].start_time == "19:00"
+    assert by[("shortfall", "deep-work")].minutes == 600
+    assert ("shortfall", "study") not in by
+
+
+def test_every_block_has_a_label_and_commitments_have_none():
+    resp = generate([commitment("23:00", "07:00")], {"deepWorkHours": 10, "studyHours": 10, "restHours": 7})
+    labels = {(b.category, b.day in ("Saturday", "Sunday")): b.label for b in resp.blocks}
+    assert labels[("fixed", False)] is None
+    assert labels[("deep-work", False)] == "deep_work"
+    assert labels[("study", False)] == "study"
+    assert labels[("study", True)] == "light_study"
+    assert labels[("rest", False)] == "rest"

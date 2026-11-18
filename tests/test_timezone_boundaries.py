@@ -72,3 +72,15 @@ def test_trailing_windows_end_on_local_today(frozen, ranges):
 def test_schedule_history_cutoff_uses_local_date(frozen):
     gen = ScheduleGenerator(db=None, user_id=1, tz=TASHKENT)
     assert gen.history_cutoff(30) == "2026-09-26"
+
+
+def test_dst_fall_back_night_new_york_boundaries(frozen):
+    ny = "America/New_York"
+    # 2026-11-01 03:30 UTC is 2026-10-31 23:30 EDT in America/New_York (previous day)
+    frozen(datetime(2026, 11, 1, 3, 30, tzinfo=UTC))
+    assert timeutil.local_today(ny) == date(2026, 10, 31)
+
+    # 2026-11-01 04:30 UTC is 2026-11-01 00:30 EDT in America/New_York (new day across midnight)
+    frozen(datetime(2026, 11, 1, 4, 30, tzinfo=UTC))
+    assert timeutil.local_today(ny) == date(2026, 11, 1)
+

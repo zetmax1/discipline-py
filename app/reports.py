@@ -46,7 +46,8 @@ def load_blocks(db: Session, user_id: int, start: date, end: date) -> list[Block
         except ValueError:
             continue
         blocks.append(Block(day=day, start=r.start_time, end=r.end_time, category=r.category,
-                            status=r.status, distractions=r.distractions or 0))
+                            status=r.status, distractions=r.distractions or 0,
+                            actual_start_min=r.actual_start_min, actual_end_min=r.actual_end_min))
     return blocks
 
 
