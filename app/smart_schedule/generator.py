@@ -63,7 +63,8 @@ class ScheduleGenerator:
 
     def fetch_history(self, days_back: int = 30):
         """Start times (minutes) of completed blocks per category in the last `days_back` days."""
-        tasks = self.db.query(Task).filter(
+        # Only the columns it needs: tasks.category_id (F13) is missing after an API rollback.
+        tasks = self.db.query(Task.category, Task.start_time).filter(
             Task.user_id == self.user_id,
             Task.date >= self.history_cutoff(days_back),
             Task.status.in_(DONE),

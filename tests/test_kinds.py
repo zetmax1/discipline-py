@@ -130,3 +130,32 @@ def test_load_blocks_works_on_the_schema_before_00014():
         with eng.begin() as conn:
             conn.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
         eng.dispose()
+
+
+@needs_db
+def test_smart_schedule_history_works_on_the_schema_before_00014(monkeypatch):
+    from app.smart_schedule.generator import ScheduleGenerator
+
+    monkeypatch.setattr(timeutil, "_utcnow", lambda: datetime(2026, 11, 4, 15, 0, tzinfo=UTC))
+    eng = create_db_engine(TEST_URL.replace("postgres://", "postgresql://", 1))
+    schema = "f13_" + secrets.token_hex(4)
+    try:
+        with eng.begin() as conn:
+            conn.execute(text(f"CREATE SCHEMA {schema}"))
+            conn.execute(text(f"SET search_path TO {schema}"))
+            conn.execute(text("""
+                CREATE TABLE tasks (id serial PRIMARY KEY, user_id int NOT NULL, name text NOT NULL,
+                    category text NOT NULL, start_time time NOT NULL, end_time time NOT NULL,
+                    status text NOT NULL, actual_start_min int, actual_end_min int, distractions int DEFAULT 0,
+                    energy int DEFAULT 3, date date NOT NULL, created_at timestamptz DEFAULT now(),
+                    updated_at timestamptz DEFAULT now());
+                INSERT INTO tasks (user_id, name, category, start_time, end_time, status, date) VALUES
+                    (1, 'a', 'deep-work', '09:00', '10:00', 'done', '2026-11-03');
+            """))
+            gen = ScheduleGenerator(Session(bind=conn), 1, "Asia/Tashkent")
+            gen.fetch_history()
+        assert gen._history["deep-work"] == [540]
+    finally:
+        with eng.begin() as conn:
+            conn.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+        eng.dispose()
