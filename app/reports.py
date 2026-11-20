@@ -7,9 +7,10 @@ import statistics
 from collections import defaultdict
 from dataclasses import asdict
 from datetime import date, timedelta
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import numpy as np
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.metrics import (
@@ -33,14 +34,27 @@ STREAK_LOOKBACK_DAYS = 365
 DEEP_WORK_SLOTS = [("Morning (6–12)", 6, 12), ("Afternoon (12–17)", 12, 17), ("Evening (17–22)", 17, 22)]
 
 
+UNDEFINED_TABLE, UNDEFINED_COLUMN = "42P01", "42703"
+# The tasks columns that exist before migration 00014 (no category_id).
+LEGACY_TASK_COLUMNS = (Task.date, Task.start_time, Task.end_time, Task.category, Task.status, Task.distractions,
+                       Task.actual_start_min, Task.actual_end_min)
+
+
 def load_blocks(db: Session, user_id: int, start: date, end: date) -> list[Block]:
     """The user's blocks with start <= date <= end (rows with an unreadable date are skipped)."""
-    rows = (
-        db.query(Task, Category.kind)
-        .outerjoin(Category, Category.id == Task.category_id)
-        .filter(Task.user_id == user_id, Task.date >= start.isoformat(), Task.date <= end.isoformat())
-        .all()
-    )
+    in_range = (Task.user_id == user_id, Task.date >= start.isoformat(), Task.date <= end.isoformat())
+    rows: list[tuple[Any, str | None]]  # (a tasks row, its category's kind or None)
+    try:
+        # A savepoint: on the schema before migration 00014 (an API rollback, design §11) the join
+        # fails, and only the savepoint is rolled back, not the caller's transaction.
+        with db.begin_nested():
+            rows = [(r, kind) for r, kind in db.query(Task, Category.kind)
+                    .outerjoin(Category, Category.id == Task.category_id).filter(*in_range).all()]
+    except ProgrammingError as err:
+        if getattr(err.orig, "pgcode", None) not in (UNDEFINED_TABLE, UNDEFINED_COLUMN):
+            raise
+        # No categories yet: every block takes its kind from the legacy string (kind_of).
+        rows = [(r, None) for r in db.query(*LEGACY_TASK_COLUMNS).filter(*in_range).all()]
     blocks = []
     for r, kind in rows:
         try:
