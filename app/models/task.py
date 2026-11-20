@@ -18,7 +18,9 @@ class Task(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    category: Mapped[str] = mapped_column(String, nullable=False)          # deep-work, study, admin, gym, rest
+    category: Mapped[str] = mapped_column(String, nullable=False)          # legacy string, kept until a later milestone
+    # F13: NULL only for legacy rows until migration 00015; metrics read the category's kind.
+    category_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # DB types are TIME / DATE; app.database returns them as "HH:MM" / "YYYY-MM-DD" text.
     start_time: Mapped[str] = mapped_column("start_time", String, nullable=False)  # "HH:MM" (end may be "24:00")
     end_time: Mapped[str] = mapped_column("end_time", String, nullable=False)      # "HH:MM"
@@ -43,3 +45,13 @@ class Task(Base):
 
     def __repr__(self):
         return f"<Task {self.id} '{self.name}' [{self.category}] {self.date}>"
+
+
+class Category(Base):
+    """A user's block category (owned by the API; read-only here). Only the kind is read."""
+
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False)  # focus, study, admin, exercise, rest, personal

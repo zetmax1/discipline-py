@@ -7,10 +7,12 @@ Completed minutes of a block: `done` -> its actual minutes when recorded, else i
 `partial` -> its actual minutes (0 when none were recorded); anything else -> 0.
   planned_minutes / completed_minutes  all of D's blocks / their completed minutes ("Planned" / "Done")
   completion   = min(1, completed minutes of due blocks / planned minutes of due blocks) (None if nothing due)
-  deep         = min(1, completed deep-work minutes / DAILY_DEEP_WORK_TARGET_MIN)
+  deep         = min(1, completed minutes of kind `focus` / DAILY_DEEP_WORK_TARGET_MIN)
   distraction  = max(0, 1 - distractions per completed deep-work hour / DISTRACTIONS_PER_HOUR_LIMIT),
                  0 when no deep work was completed
   focus_score  = round half up of 100 * (0.5*completion + 0.3*deep + 0.2*distraction); None if nothing due
+Categories count by kind (focus, study, admin, exercise, rest, personal), never by name (F13). A
+block's kind is its category's; a block without one yet falls back to its legacy string.
 A week or month score is the mean of the daily scores that exist.
 Streak: counting back from the most recent finished day, days with nothing due are
 skipped, days with completion >= STREAK_COMPLETION_THRESHOLD count, the first day
@@ -31,6 +33,18 @@ WEIGHT_DEEP = 0.3
 WEIGHT_DISTRACTION = 0.2
 
 DEEP_WORK = "deep-work"
+FOCUS = "focus"
+PERSONAL = "personal"
+
+# Legacy tasks.category strings (lower-cased, trimmed) -> kind; anything else is personal. Mirrors
+# category_legacy_map in the API's migration 00014.
+LEGACY_KINDS = {
+    "deep-work": FOCUS, "deep work": FOCUS, "study": "study", "admin": "admin", "gym": "exercise",
+    "exercise": "exercise", "rest": "rest", "personal": PERSONAL, "fixed": PERSONAL,
+}
+# Kind -> the key the period report uses for it (the legacy names the web already labels).
+KIND_KEYS = {FOCUS: "deep-work", "study": "study", "admin": "admin", "exercise": "gym", "rest": "rest",
+             PERSONAL: PERSONAL}
 DONE = {"done", "completed"}  # "completed" = legacy name of done
 PARTIAL = "partial"
 MOVED = "moved"
@@ -58,6 +72,11 @@ class Block:
     distractions: int = 0
     actual_start_min: int | None = None
     actual_end_min: int | None = None
+    kind: str | None = None  # categories.kind; None while the block has no category_id
+
+    @property
+    def is_focus(self) -> bool:
+        return kind_of(self) == FOCUS
 
     @property
     def start_min(self) -> int | None:
@@ -131,6 +150,13 @@ class DayMetrics:
     focus_score: int | None
 
 
+def kind_of(block: Block) -> str:
+    """The block's category kind: from its category, else from its legacy string."""
+    if block.kind:
+        return block.kind
+    return LEGACY_KINDS.get(str(block.category or "").strip().lower(), PERSONAL)
+
+
 def round_half_up(x: float) -> int:
     return math.floor(x + 0.5)
 
@@ -142,7 +168,7 @@ def day_metrics(day: date, blocks: list[Block], now: datetime) -> DayMetrics:
     due_planned = sum(b.minutes for b in due)
     due_completed = sum(b.completed_minutes for b in due)
 
-    deep_blocks = [b for b in blocks if b.completed and b.category == DEEP_WORK]
+    deep_blocks = [b for b in blocks if b.completed and b.is_focus]
     deep_minutes = sum(b.completed_minutes for b in deep_blocks)
     deep_distractions = sum(max(0, b.distractions) for b in deep_blocks)
 
