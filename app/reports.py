@@ -14,14 +14,15 @@ from sqlalchemy.orm import Session
 
 from app.metrics import (
     DAILY_DEEP_WORK_TARGET_MIN,
-    DEEP_WORK,
+    KIND_KEYS,
     Block,
     DayMetrics,
     day_metrics,
+    kind_of,
     mean_score,
     streak_length,
 )
-from app.models.task import Task
+from app.models.task import Category, Task
 from app.timeutil import local_now
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -35,19 +36,20 @@ DEEP_WORK_SLOTS = [("Morning (6–12)", 6, 12), ("Afternoon (12–17)", 12, 17),
 def load_blocks(db: Session, user_id: int, start: date, end: date) -> list[Block]:
     """The user's blocks with start <= date <= end (rows with an unreadable date are skipped)."""
     rows = (
-        db.query(Task)
+        db.query(Task, Category.kind)
+        .outerjoin(Category, Category.id == Task.category_id)
         .filter(Task.user_id == user_id, Task.date >= start.isoformat(), Task.date <= end.isoformat())
         .all()
     )
     blocks = []
-    for r in rows:
+    for r, kind in rows:
         try:
             day = date.fromisoformat(str(r.date))
         except ValueError:
             continue
         blocks.append(Block(day=day, start=r.start_time, end=r.end_time, category=r.category,
                             status=r.status, distractions=r.distractions or 0,
-                            actual_start_min=r.actual_start_min, actual_end_min=r.actual_end_min))
+                            actual_start_min=r.actual_start_min, actual_end_min=r.actual_end_min, kind=kind))
     return blocks
 
 
@@ -114,7 +116,7 @@ def period_report(db: Session, user_id: int, tz: str, kind: str) -> dict:
     category_minutes: defaultdict[str, int] = defaultdict(int)
     for blk in blocks:
         if blk.completed and blk.minutes > 0:
-            category_minutes[blk.category] += blk.minutes
+            category_minutes[KIND_KEYS[kind_of(blk)]] += blk.minutes
 
     return {
         "range": kind,
@@ -149,7 +151,7 @@ def deep_minutes_by_hour(blocks: list[Block]) -> list[int]:
     minutes = [0] * 24
     for blk in blocks:
         span = blk.span
-        if not (blk.completed and blk.category == DEEP_WORK) or span is None:
+        if not (blk.completed and blk.is_focus) or span is None:
             continue
         start_min, end_min = span
         for h in range(24):
@@ -246,7 +248,7 @@ def focus_patterns(db: Session, user_id: int, tz: str, days: int) -> dict:
     slot_minutes = {name: 0 for name, _, _ in DEEP_WORK_SLOTS}
     for blk in blocks:
         span = blk.span
-        if blk.completed and blk.category == DEEP_WORK and span is not None:
+        if blk.completed and blk.is_focus and span is not None:
             for name, lo, hi in DEEP_WORK_SLOTS:
                 if lo * 60 <= span[0] < hi * 60:
                     slot_minutes[name] += blk.minutes
