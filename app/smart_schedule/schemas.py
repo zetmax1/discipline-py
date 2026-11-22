@@ -5,7 +5,7 @@ Smart Schedule — Pydantic Schemas
 import re
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 DayName = Literal["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
@@ -52,9 +52,38 @@ class WeeklyGoals(BaseModel):
     restHours: float = _goal(7.0)
 
 
+class BusySegment(BaseModel):
+    """F9a: one commitment segment of the chosen week, sent by the API (overnight ones arrive split
+    at midnight, so a segment never wraps)."""
+    day: DayName
+    startMin: int = Field(ge=0, le=1439)
+    endMin: int = Field(ge=1, le=1440)
+    name: str = Field(max_length=100)
+    kind: str = Field(max_length=20)
+
+    @model_validator(mode="after")
+    def _forward(self):
+        if self.endMin <= self.startMin:
+            raise ValueError("endMin must be after startMin (the API splits overnight segments)")
+        return self
+
+
 class SmartScheduleRequest(BaseModel):
-    commitments: list[Commitment] = Field(max_length=50)
+    """Legacy body `{commitments, goals}` (the browser's data, proxied by the API until the contract
+    step) or F9a's `{weekStart, busy, goals, restDay, maxFocusMinPerDay}` built by the API from the
+    user's saved commitments and targets. Exactly one of `commitments` / `busy`."""
+    commitments: list[Commitment] | None = Field(default=None, max_length=50)
+    busy: list[BusySegment] | None = Field(default=None, max_length=700)
+    weekStart: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     goals: WeeklyGoals
+    restDay: int | None = Field(default=None, ge=1, le=7)
+    maxFocusMinPerDay: int | None = Field(default=None, ge=60, le=960)
+
+    @model_validator(mode="after")
+    def _one_source(self):
+        if (self.commitments is None) == (self.busy is None):
+            raise ValueError("send either commitments or busy")
+        return self
 
 
 BlockLabel = Literal["deep_work", "study", "light_study", "rest"]

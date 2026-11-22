@@ -93,6 +93,11 @@ class ScheduleGenerator:
         return {k for k in range(SLOTS_PER_DAY) for lo, hi in spans if k * SLOT < hi and k * SLOT + SLOT > lo}
 
     @staticmethod
+    def _span_slots(start: int, end: int) -> set[int]:
+        """Slots overlapping [start, end) on one day (a busy segment never wraps)."""
+        return {k for k in range(SLOTS_PER_DAY) if k * SLOT < end and k * SLOT + SLOT > start}
+
+    @staticmethod
     def _quotas(n: int, weights: dict[str, int]) -> dict[str, int]:
         """Split n slots across days by weight (largest remainder, ties in day order)."""
         total = sum(weights.values())
@@ -121,10 +126,20 @@ class ScheduleGenerator:
 
         free = {day: set(range(SLOTS_PER_DAY)) for day in self.DAYS}
         for day in self.DAYS:
-            for c in (c for c in request.commitments if day in c.days):
+            for c in (c for c in (request.commitments or []) if day in c.days):
                 free[day] -= self._commitment_slots(c.startTime, c.endTime)
                 blocks.append(ScheduleBlock(id=str(uuid.uuid4()), name=c.name, category='fixed',
                                             startTime=c.startTime, endTime=c.endTime, day=day, label=None))
+        # F9a: segments from the API, each on its own day (23:00-24:00 Mon and 00:00-07:00 Tue are two).
+        for seg in request.busy or []:
+            free[seg.day] -= self._span_slots(seg.startMin, seg.endMin)
+            blocks.append(ScheduleBlock(id=str(uuid.uuid4()), name=seg.name, category='fixed',
+                                        startTime=_fmt(seg.startMin), endTime=_fmt(seg.endMin), day=seg.day, label=None))
+        # Owner answer 1 (F9a): nothing at all is planned on the rest day.
+        if request.restDay:
+            free[self.DAYS[request.restDay - 1]] = set()
+        # ... and focus is capped per day; what doesn't fit is shortfall.
+        focus_cap = request.maxFocusMinPerDay // SLOT if request.maxFocusMinPerDay else None
 
         for category, label, code, goal_field, default, window_end in CATEGORIES:
             preferred, learned = self.preferred_start(category, default, window_end)
@@ -140,12 +155,17 @@ class ScheduleGenerator:
             needed = round(getattr(request.goals, goal_field) * 60 / SLOT)
             weights = self.DAY_WEIGHTS[category]
             lo, hi, pref = DAY_START // SLOT, window_end // SLOT, preferred // SLOT
-            taken = {day: self._take(free[day], q, pref, lo, hi) for day, q in self._quotas(needed, weights).items()}
+            cap = focus_cap if category == "deep-work" else None
+
+            def room(day: str, want: int, have: int = 0, cap=cap) -> int:
+                return want if cap is None else max(0, min(want, cap - have))
+
+            taken = {day: self._take(free[day], room(day, q), pref, lo, hi) for day, q in self._quotas(needed, weights).items()}
             missing = needed - sum(len(s) for s in taken.values())
             for day in weights:                       # spill what didn't fit to other days
                 if missing <= 0:
                     break
-                extra = self._take(free[day], missing, pref, lo, hi)
+                extra = self._take(free[day], room(day, missing, len(taken[day])), pref, lo, hi)
                 taken[day] += extra
                 missing -= len(extra)
 
